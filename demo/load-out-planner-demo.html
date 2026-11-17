@@ -149,6 +149,7 @@ main { max-width: 1400px; margin: 0 auto; padding-block: 20px 48px; display: fle
 .tl-bar.thin { top: 15px; height: 8px; padding: 0; background: var(--cs); opacity: 0.5; cursor: default; box-shadow: none; }
 .tl-bar.faded { opacity: 0.45; }
 .tl-bar.late { background: repeating-linear-gradient(135deg, var(--bad-bg) 0 6px, transparent 6px 10px); color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
+.tl-act { position: absolute; top: 32px; height: 4px; border-radius: 2px; background: var(--ink); opacity: 0.65; z-index: 2; }
 .tl-lo { position: absolute; top: 9px; width: 20px; height: 20px; border: 2px solid var(--surface); border-radius: 4px; background: var(--cs); transform: rotate(45deg); cursor: pointer; z-index: 3; padding: 0; }
 
 /* Tables */
@@ -255,7 +256,7 @@ dl.kv dd { margin: 0; }
    Everything runs in the browser; changes are kept in this browser only.
    ===================================================================== */
 const TODAY = '2026-11-17';               // fixed "today" so the demo data always lines up
-const STORE_KEY = 'load-out-planner-demo-v1';
+const STORE_KEY = 'load-out-planner-demo-v3-spira';
 
 // ---------- date helpers (ISO yyyy-mm-dd strings, UTC) ----------
 const D = s => { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
@@ -274,48 +275,52 @@ const $ = sel => document.querySelector(sel);
 
 // ---------- sample data ----------
 function seed() {
+  // Sample data only. Columns mirror the SPIRA Job list; customers, people and ticket numbers are invented.
+  const J = (id, campaign, client, field, well, loc, desc, serviceType, branch, sales, engineer, mainAsset, start, end, actStart, actEnd, status) =>
+    ({ id, campaign, client, bu: 'Cementing', field, well, site: `${field} · ${well}`, loc, desc, serviceType, branch, sales, supervisor: engineer, mainAsset, start, end, actStart, actEnd, status });
   return {
-    clients: ['Northwind Energy', 'Cedar Ridge Operating', 'Basin Crest Resources'],
+    branches: ['San Fernando', 'Belle Vue'],
+    clients: ['Atlantic Gulf Energy', 'Paria Petroleum Co.', 'Central Range Oil & Gas'],
     campaigns: [
-      { id: 'CMP-01', name: 'Pad 7 Completions', client: 'Northwind Energy', color: 1, notes: 'Three-well zipper frac program, wells 14H to 16H. Equipment moves well to well.' },
-      { id: 'CMP-02', name: 'Ute Flats Program', client: 'Basin Crest Resources', color: 2, notes: 'Two-well workover campaign.' }
+      { id: 'CMP-01', name: 'Angelin Development', client: 'Atlantic Gulf Energy', color: 1, notes: 'Offshore drilling and completions cementing across three Angelin wells. Equipment moves well to well.' },
+      { id: 'CMP-02', name: 'East Soldado Hitches', client: 'Paria Petroleum Co.', color: 2, notes: 'Offshore cementing hitches on East Soldado wells.' }
     ],
     jobs: [
-      { id: 'J-2026-038', campaign: null, client: 'Cedar Ridge Operating', site: 'Kestrel 3-22', start: '2026-11-10', end: '2026-11-15', supervisor: 'T. Okafor', status: 'Mobilized' },
-      { id: 'J-2026-041', campaign: 'CMP-01', client: 'Northwind Energy', site: 'Pad 7 – Well 14H', start: '2026-11-20', end: '2026-12-04', supervisor: 'R. Delgado', status: 'Planned' },
-      { id: 'J-2026-043', campaign: 'CMP-02', client: 'Basin Crest Resources', site: 'Ute Flats 9', start: '2026-11-26', end: '2026-12-10', supervisor: 'S. Begay', status: 'Planned' },
-      { id: 'J-2026-044', campaign: 'CMP-01', client: 'Northwind Energy', site: 'Pad 7 – Well 15H', start: '2026-12-06', end: '2026-12-16', supervisor: 'R. Delgado', status: 'Planned' },
-      { id: 'J-2026-045', campaign: null, client: 'Cedar Ridge Operating', site: 'Kestrel 4-10', start: '2026-12-01', end: '2026-12-05', supervisor: 'T. Okafor', status: 'Planned' },
-      { id: 'J-2026-047', campaign: 'CMP-01', client: 'Northwind Energy', site: 'Pad 7 – Well 16H', start: '2026-12-18', end: '2026-12-30', supervisor: 'R. Delgado', status: 'Planned' },
-      { id: 'J-2026-048', campaign: 'CMP-02', client: 'Basin Crest Resources', site: 'Ute Flats 11', start: '2026-12-14', end: '2026-12-23', supervisor: 'S. Begay', status: 'Planned' }
+      J('JTKT00034105', null, 'Central Range Oil & Gas', 'Catshill', 'CO 182', 'Land', '9 5/8" casing', 'Cement Casing', 'San Fernando', 'Kamal Juman', 'Reece Charles', 'CU-P42', '2026-11-10', '2026-11-15', '2026-11-10', null, 'Active Job'),
+      J('JTKT00033620', 'CMP-01', 'Atlantic Gulf Energy', 'Angelin', 'ANG1_A_06B01', 'Offshore', 'Drilling', 'Cement Services', 'Belle Vue', 'Andre Deonarine', 'Marc Ramdial', 'CU-S12', '2026-11-20', '2026-12-04', null, null, 'Scheduled'),
+      J('JTKT00034217', 'CMP-02', 'Paria Petroleum Co.', 'East Soldado', 'S-934-X-FU', 'Offshore', 'Hitch #1', 'Cement Services', 'Belle Vue', 'Andre Deonarine', 'Michael Hosein', 'CU-S15', '2026-11-26', '2026-12-10', null, null, 'Scheduled'),
+      J('JTKT00034230', null, 'Central Range Oil & Gas', 'Penal', 'PEN-512', 'Land', '7" liner', 'Cement Casing', 'San Fernando', 'Kamal Juman', 'Reece Charles', 'CU-P45', '2026-12-01', '2026-12-05', null, null, 'Scheduled'),
+      J('JTKT00033621', 'CMP-01', 'Atlantic Gulf Energy', 'Angelin', 'ANG1_A_02_B01', 'Offshore', 'Completions', 'Cement Services', 'Belle Vue', 'Andre Deonarine', 'Marc Ramdial', 'CU-S12', '2026-12-06', '2026-12-16', null, null, 'Scheduled'),
+      J('JTKT00034218', 'CMP-02', 'Paria Petroleum Co.', 'East Soldado', 'S-831 FU', 'Offshore', 'Hitch #2', 'Cement Services', 'Belle Vue', 'Andre Deonarine', 'Michael Hosein', 'CU-S15', '2026-12-14', '2026-12-23', null, null, 'Scheduled'),
+      J('JTKT00033622', 'CMP-01', 'Atlantic Gulf Energy', 'Angelin', 'ANG1_A_01_B02', 'Offshore', 'Completions', 'Cement Services', 'Belle Vue', 'Andre Deonarine', 'Marc Ramdial', 'CU-S12', '2026-12-18', '2026-12-30', null, null, 'Scheduled')
     ],
     loadouts: [
-      { id: 'LO-038-1', job: 'J-2026-038', date: '2026-11-09', truck: 'T-09', trailer: 'FB-17', driver: 'Luis Ortega', status: 'Delivered', assets: ['TK-5001', 'PC-1004', 'HS-6005'], overrides: {} },
-      { id: 'LO-041-1', job: 'J-2026-041', date: '2026-11-19', truck: 'T-14', trailer: 'FB-22', driver: 'Marco Ruiz', status: 'Planned', assets: ['PC-1001', 'LF-2003', 'GN-4002', 'HS-6002'], overrides: {} },
-      { id: 'LO-041-2', job: 'J-2026-041', date: '2026-11-23', truck: 'T-21', trailer: 'LB-03 Lowboy', driver: 'Marco Ruiz', status: 'Planned', assets: ['PU-3001'], overrides: {} },
-      { id: 'LO-043-1', job: 'J-2026-043', date: '2026-11-24', truck: 'T-11', trailer: 'LB-05 Lowboy', driver: 'Jake Moreno', status: 'Planned', assets: ['PU-3003', 'PC-1003', 'HS-6004'], overrides: {} }
+      { id: 'LO-34105-1', job: 'JTKT00034105', date: '2026-11-09', truck: 'T-09 Mack Granite', trailer: 'BK-210 Bulk trailer', driver: 'Dexter Ali', status: 'Delivered', assets: ['CU-P42', 'BK-210', 'HP-501'], overrides: {} },
+      { id: 'LO-33620-1', job: 'JTKT00033620', date: '2026-11-19', truck: 'M/V Caroni Star', trailer: 'Deck bay 2', driver: 'Capt. R. Sookdeo', status: 'Planned', assets: ['CU-S12', 'BM-302', 'HD-401', 'LF-701', 'GN-801'], overrides: {} },
+      { id: 'LO-33620-2', job: 'JTKT00033620', date: '2026-11-23', truck: 'M/V Caroni Star', trailer: 'Deck bay 4', driver: 'Capt. R. Sookdeo', status: 'Planned', assets: ['BK-102', 'CN-901'], overrides: {} },
+      { id: 'LO-34217-1', job: 'JTKT00034217', date: '2026-11-24', truck: 'M/V Gulf Tern', trailer: 'Deck bay 1', driver: 'Capt. K. Ali', status: 'Planned', assets: ['CU-S15', 'BM-301', 'HD-402', 'HP-502'], overrides: {} }
     ],
     assets: [
-      ['PC-1001', 'Frac valve 7-1/16" 10K', 'Pressure Control', 'Reserved', '2026-12-02'],
-      ['PC-1002', 'Frac valve 7-1/16" 10K', 'Pressure Control', 'Available', '2027-03-14'],
-      ['PC-1003', 'Frac valve 5-1/8" 15K', 'Pressure Control', 'Reserved', '2027-02-20'],
-      ['PC-1004', 'Wellhead isolation tool', 'Pressure Control', 'On Job', '2027-01-20'],
-      ['LF-2003', 'Spreader bar 20 t', 'Lifting', 'Reserved', '2026-12-09'],
-      ['LF-2005', 'Shackle set 35 t', 'Lifting', 'Available', '2027-04-02'],
-      ['LF-2007', 'Chain sling 4-leg 11 t', 'Lifting', 'Out of Service', '2026-11-08'],
-      ['PU-3001', 'Triplex pump 600 hp', 'Pumps', 'Reserved', '2027-05-01'],
-      ['PU-3002', 'Transfer pump 4"', 'Pumps', 'In Maintenance', '2027-02-11'],
-      ['PU-3003', 'Triplex pump 600 hp', 'Pumps', 'Reserved', '2027-03-30'],
-      ['GN-4002', 'Generator 150 kW', 'Generators', 'Reserved', '2026-12-11'],
-      ['GN-4003', 'Generator 75 kW', 'Generators', 'Available', '2027-06-15'],
-      ['TK-5001', 'Frac tank 500 bbl', 'Tanks', 'On Job', '2027-04-18'],
-      ['TK-5002', 'Frac tank 500 bbl', 'Tanks', 'Available', '2027-04-18'],
-      ['HS-6002', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'Reserved', '2027-06-30'],
-      ['HS-6003', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'Returned – Awaiting Inspection', '2026-12-15'],
-      ['HS-6004', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'Reserved', '2027-06-30'],
-      ['HS-6005', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'On Job', '2027-06-30'],
-      ['LT-7001', 'Light tower 4 × 1000 W', 'Site Equipment', 'Retired', null],
-      ['LT-7002', 'Light tower 4 × 1000 W', 'Site Equipment', 'Available', '2027-08-01']
+      ['CU-P42', 'Truck-mounted single pumping unit (P42)', 'Cementing Units', 'On Job', '2027-03-01'],
+      ['CU-P45', 'Truck-mounted single pumping unit (P45)', 'Cementing Units', 'Available', '2027-05-12'],
+      ['CU-P31', 'Truck-mounted single pumping unit (P31)', 'Cementing Units', 'Retired', null],
+      ['CU-S12', 'Skid twin cementing unit – offshore (S12)', 'Cementing Units', 'Reserved', '2027-02-10'],
+      ['CU-S14', 'Skid twin cementing unit – offshore (S14)', 'Cementing Units', 'In Maintenance', '2027-01-15'],
+      ['CU-S15', 'Skid twin cementing unit – offshore (S15)', 'Cementing Units', 'Reserved', '2027-04-22'],
+      ['BK-101', 'Bulk cement tank 1,000 ft³', 'Bulk', 'Available', '2027-06-01'],
+      ['BK-102', 'Bulk cement tank 1,000 ft³', 'Bulk', 'Reserved', '2027-06-01'],
+      ['BK-210', 'Pneumatic bulk trailer 1,100 ft³', 'Bulk', 'On Job', '2027-03-18'],
+      ['BM-301', 'Batch mixer 50 bbl', 'Mixing', 'Reserved', '2027-02-28'],
+      ['BM-302', 'Batch mixer 100 bbl – offshore', 'Mixing', 'Reserved', '2027-05-05'],
+      ['HD-401', 'Cement head 9-5/8" quick-latch', 'Cement Heads', 'Reserved', '2026-12-02'],
+      ['HD-402', 'Cement head 13-3/8" quick-latch', 'Cement Heads', 'Reserved', '2027-03-09'],
+      ['HP-501', 'Treating iron 2" 15K set', 'Iron', 'On Job', '2027-01-20'],
+      ['HP-502', 'Treating iron 2" 15K set', 'Iron', 'Reserved', '2027-04-30'],
+      ['HP-503', 'Treating iron 2" 15K set', 'Iron', 'Returned – Awaiting Inspection', '2026-12-15'],
+      ['LF-701', 'Offshore lifting frame 10 t (DNV 2.7-1)', 'Lifting', 'Reserved', '2026-12-09'],
+      ['LF-702', 'Chain sling 4-leg 11 t', 'Lifting', 'Out of Service', '2026-11-08'],
+      ['GN-801', 'Generator 100 kVA – Zone 2', 'Power', 'Reserved', '2026-12-11'],
+      ['CN-901', 'Offshore container 20 ft (DNV)', 'Containers', 'Reserved', '2027-07-14']
     ].map(([id, name, cat, status, cert]) => ({ id, name, cat, status, cert }))
   };
 }
@@ -325,7 +330,7 @@ function loadStore() { try { const s = localStorage.getItem(STORE_KEY); return s
 function saveStore() { try { localStorage.setItem(STORE_KEY, JSON.stringify({ data: S, role: ui.role })); } catch (e) { /* storage unavailable: demo still works in memory */ } }
 const stored = loadStore();
 let S = stored && stored.data ? stored.data : seed();
-const ui = { view: 'calendar', month: monthStart(TODAY), mode: 'month', group: 'campaign', fCampaign: 'all', fClient: 'all', role: (stored && stored.role) || 'Planner', openJob: null };
+const ui = { view: 'calendar', month: monthStart(TODAY), mode: 'month', group: 'campaign', fCampaign: 'all', fClient: 'all', fField: 'all', fLoc: 'all', role: (stored && stored.role) || 'Planner', openJob: null };
 
 const job = id => S.jobs.find(j => j.id === id);
 const camp = id => S.campaigns.find(c => c.id === id);
@@ -344,7 +349,7 @@ const PILL = {
   'Available': 'good', 'Reserved': 'info', 'Loaded Out': 'info', 'On Job': 'info', 'Returned – Awaiting Inspection': 'warn',
   'In Maintenance': 'warn', 'Out of Service': 'bad', 'Retired': 'neutral',
   'Planned': 'neutral', 'Loading': 'info', 'Mobilized': 'info', 'Completed': 'good', 'Cancelled': 'bad',
-  'Loaded': 'info', 'Delivered': 'info', 'Returned': 'good', 'Active': 'info', 'Complete': 'good', 'Overdue': 'bad'
+  'Scheduled': 'neutral', 'Active Job': 'info', 'Loaded': 'info', 'Delivered': 'info', 'Returned': 'good', 'Active': 'info', 'Complete': 'good', 'Overdue': 'bad'
 };
 const pill = s => `<span class="pill ${PILL[s] || 'neutral'}">${esc(s)}</span>`;
 const truckIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg>';
@@ -357,10 +362,10 @@ function campaignSpan(c) {
 function campaignStatus(c) {
   const js = jobsOf(c.id).filter(j => j.status !== 'Cancelled');
   if (js.length && js.every(j => j.status === 'Completed')) return 'Complete';
-  if (js.some(j => j.status === 'Loading' || j.status === 'Mobilized' || (j.start <= TODAY && TODAY <= j.end))) return 'Active';
+  if (js.some(j => j.status === 'Active Job' || (j.start <= TODAY && TODAY <= j.end))) return 'Active';
   return 'Planned';
 }
-const isOverdue = j => j.end < TODAY && !closed(j) && j.status !== 'Planned';
+const isOverdue = j => j.end < TODAY && !closed(j) && j.status !== 'Scheduled';
 
 // ---------- booking rules ----------
 // The window an asset is tied up for one load-out: load date -> job end
@@ -407,7 +412,9 @@ function releaseAssets(ids) {
 function jobVisible(j) {
   const fc = ui.fCampaign === 'all' || (ui.fCampaign === 'none' ? !j.campaign : j.campaign === ui.fCampaign);
   const fl = ui.fClient === 'all' || j.client === ui.fClient;
-  return fc && fl;
+  const ff = ui.fField === 'all' || j.field === ui.fField;
+  const fo = ui.fLoc === 'all' || j.loc === ui.fLoc;
+  return fc && fl && ff && fo;
 }
 function filterControls() {
   return `
@@ -416,9 +423,18 @@ function filterControls() {
       ${S.campaigns.map(c => `<option value="${esc(c.id)}" ${ui.fCampaign === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
       <option value="none" ${ui.fCampaign === 'none' ? 'selected' : ''}>Standalone jobs</option>
     </select>
-    <select id="f-client" aria-label="Filter by client">
-      <option value="all">All clients</option>
+    <select id="f-client" aria-label="Filter by customer">
+      <option value="all">All customers</option>
       ${S.clients.map(c => `<option ${ui.fClient === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+    </select>
+    <select id="f-field" aria-label="Filter by field">
+      <option value="all">All fields</option>
+      ${[...new Set(S.jobs.map(j => j.field).filter(Boolean))].sort().map(f => `<option ${ui.fField === f ? 'selected' : ''}>${esc(f)}</option>`).join('')}
+    </select>
+    <select id="f-loc" aria-label="Filter by land or offshore">
+      <option value="all">Land &amp; offshore</option>
+      <option ${ui.fLoc === 'Land' ? 'selected' : ''}>Land</option>
+      <option ${ui.fLoc === 'Offshore' ? 'selected' : ''}>Offshore</option>
     </select>`;
 }
 function legend() {
@@ -427,6 +443,7 @@ function legend() {
     <span class="c0"><i class="sw"></i>Standalone job</span>
     <span><span class="chip c0" style="pointer-events:none">${truckIcon}</span>Load-out</span>
     <span><i class="sw" style="background:transparent;outline:2px solid var(--bad);outline-offset:-2px"></i>Overdue return</span>
+    ${ui.mode === 'timeline' && ui.group === 'campaign' ? '<span><i class="sw" style="background:var(--ink);height:4px;opacity:.65"></i>Actual dates</span>' : ''}
   </div>`;
 }
 
@@ -486,7 +503,7 @@ function monthGrid() {
       if (lane < 0) { lane = lanes.length; lanes.push(e); } else lanes[lane] = e;
       const cls = [colorOf(j), j.start < ws ? 'cl' : '', j.end > we ? 'cr' : '', isOverdue(j) ? 'overdue' : '', j.status === 'Cancelled' ? 'cancelled' : ''].join(' ');
       const tip = `${j.id} · ${j.site} · ${fmt(j.start)} – ${fmt(j.end)} · ${j.status}${isOverdue(j) ? ' · return overdue' : ''}`;
-      return `<button class="bar ${cls}" style="grid-column:${diff(ws, s) + 1} / span ${diff(s, e) + 1};grid-row:${lane + 2}" data-act="openJob" data-id="${esc(j.id)}" title="${esc(tip)}"><span class="mono">${esc(j.id.slice(7))}</span><span>${esc(j.site)}</span></button>`;
+      return `<button class="bar ${cls}" style="grid-column:${diff(ws, s) + 1} / span ${diff(s, e) + 1};grid-row:${lane + 2}" data-act="openJob" data-id="${esc(j.id)}" title="${esc(tip)}"><span class="mono">${esc(j.id.slice(-5))}</span><span>${esc(j.site)}</span></button>`;
     });
     const L = Math.max(lanes.length, 1);
     let days = '', marks = '';
@@ -528,6 +545,10 @@ function timeline() {
     const jobRow = j => {
       const pos = barPos(j.start, j.end);
       let t = pos ? `<button class="tl-bar ${colorOf(j)} ${isOverdue(j) ? 'late' : ''}" style="${pos}" data-act="openJob" data-id="${esc(j.id)}" title="${esc(`${j.id} · ${j.site} · ${fmt(j.start)} – ${fmt(j.end)} · ${j.status}`)}">${esc(j.site)}</button>` : '';
+      if (j.actStart) {   // actual dates drawn under the scheduled bar, so slippage is visible
+        const ap = barPos(j.actStart, j.actEnd || (closed(j) ? j.end : TODAY));
+        if (ap) t += `<div class="tl-act" style="${ap}" title="${esc(`Actual ${fmt(j.actStart)} – ${j.actEnd ? fmt(j.actEnd) : 'ongoing'}`)}"></div>`;
+      }
       loadoutsOf(j.id).forEach(l => { if (l.date >= start && l.date <= end) t += `<button class="tl-lo ${colorOf(j)}" style="left:${px(l.date) + 4}px" data-act="openJob" data-id="${esc(j.id)}" title="${esc(`${l.id} · load-out ${fmt(l.date)} · ${l.truck} · ${l.assets.length} assets · ${l.status}`)}" aria-label="${esc(l.id)} load-out ${esc(fmt(l.date))}"></button>`; });
       return row(`<span class="mono">${esc(j.id)}</span><span class="pill ${PILL[j.status]}" style="margin-left:auto">${esc(j.status)}</span>`, t);
     };
@@ -588,6 +609,7 @@ function viewCampaigns() {
       <button class="seq-job" data-act="openJob" data-id="${esc(j.id)}">
         <span class="row spread"><span class="mono" style="font-weight:600">${esc(j.id)}</span>${pill(isOverdue(j) ? 'Overdue' : j.status)}</span>
         <span style="font-weight:600">${esc(j.site)}</span>
+        <span>${esc(j.desc)} · ${esc(j.loc)}</span>
         <span class="muted num">${fmt(j.start)} – ${fmt(j.end)} · ${diff(j.start, j.end) + 1} days</span>
         <span class="muted">${loadoutsOf(j.id).length} load-out(s)</span>
       </button>`).join('');
@@ -624,16 +646,19 @@ function viewCampaigns() {
 function viewJobs() {
   const js = S.jobs.filter(jobVisible).sort((a, b) => a.start.localeCompare(b.start));
   return `<div class="page-head">
-      <div><h1>Jobs</h1><p>${js.length} jobs</p></div>
+      <div><h1>Jobs</h1><p>${js.length} jobs · columns follow the SPIRA Job list</p></div>
       <div class="row">${filterControls()}${can.plan() ? `<button class="btn pri" data-act="newJob">+ New job</button>` : ''}</div>
     </div>
     <section class="panel"><div class="tbl-wrap"><table>
-      <thead><tr><th>Job</th><th>Campaign</th><th>Client</th><th>Site</th><th>Dates</th><th>Supervisor</th><th>Load-outs</th><th>Status</th></tr></thead>
+      <thead><tr><th>Ticket</th><th>Field</th><th>Well</th><th>Location</th><th>Customer</th><th>Job description</th><th>Service type</th><th>Branch office</th><th>Scheduled</th><th>Actual</th><th>Service engineer</th><th>Main asset</th><th>Campaign</th><th>Load-outs</th><th>Job state</th></tr></thead>
       <tbody>${js.map(j => { const c = j.campaign && camp(j.campaign); const seqN = c ? jobsOf(c.id).findIndex(x => x.id === j.id) + 1 : 0; return `<tr>
         <td><button class="linkbtn mono" data-act="openJob" data-id="${esc(j.id)}">${esc(j.id)}</button></td>
+        <td>${esc(j.field)}</td><td class="mono">${esc(j.well)}</td><td>${esc(j.loc)}</td>
+        <td>${esc(j.client)}</td><td>${esc(j.desc)}</td><td>${esc(j.serviceType)}</td><td>${esc(j.branch)}</td>
+        <td class="num">${fmt(j.start)} – ${fmt(j.end)}</td>
+        <td class="num">${j.actStart ? `${fmt(j.actStart)} – ${j.actEnd ? fmt(j.actEnd) : '…'}` : '<span class="muted">—</span>'}</td>
+        <td>${esc(j.supervisor)}</td><td class="mono">${esc(j.mainAsset || '—')}</td>
         <td>${c ? `<span class="row c${c.color}"><i class="sw"></i>${esc(c.name)} <span class="muted">· ${seqN} of ${jobsOf(c.id).length}</span></span>` : '<span class="muted">Standalone</span>'}</td>
-        <td>${esc(j.client)}</td><td>${esc(j.site)}</td>
-        <td class="num">${fmt(j.start)} – ${fmt(j.end)}</td><td>${esc(j.supervisor)}</td>
         <td class="num">${loadoutsOf(j.id).length}</td><td>${pill(isOverdue(j) ? 'Overdue' : j.status)}</td></tr>`; }).join('')}</tbody>
     </table></div>${js.length ? '' : '<div class="empty">No jobs match these filters.</div>'}</section>`;
 }
@@ -680,6 +705,7 @@ function renderDrawer() {
   const j = ui.openJob && job(ui.openJob);
   if (!j) { root.innerHTML = ''; return; }
   const c = j.campaign && camp(j.campaign);
+  const los = loadoutsOf(j.id);
   let campBox = '';
   if (c) {
     const js = jobsOf(c.id), i = js.findIndex(x => x.id === j.id);
@@ -690,7 +716,6 @@ function renderDrawer() {
         <button class="btn sm" data-act="openJob" data-id="${esc(js[i + 1] ? js[i + 1].id : '')}" ${i < js.length - 1 ? '' : 'disabled'}>${i < js.length - 1 ? esc(js[i + 1].id) : 'Last job'} →</button>
       </div></div>`;
   }
-  const los = loadoutsOf(j.id);
   const loCards = los.map(l => `<div class="lo-card">
       <div class="row spread"><span class="row"><span class="mono" style="font-weight:600">${esc(l.id)}</span>${pill(l.status)}</span><span class="muted num">${fmtDay(l.date)}</span></div>
       <div class="muted"><span class="mono">${esc(l.truck)} · ${esc(l.trailer)}</span> · ${esc(l.driver)}</div>
@@ -712,17 +737,25 @@ function renderDrawer() {
       <div class="drawer-body">
         ${campBox}
         <dl class="kv">
-          <dt>Client</dt><dd>${esc(j.client)}</dd>
-          <dt>Well site</dt><dd>${esc(j.site)}</dd>
-          <dt>Dates</dt><dd class="num">${fmtDay(j.start)} – ${fmtDay(j.end)} · ${diff(j.start, j.end) + 1} days</dd>
-          <dt>Supervisor</dt><dd>${esc(j.supervisor)}</dd>
-          <dt>Job status</dt><dd>${esc(j.status)}${isOverdue(j) ? ' · <span class="t-bad">return overdue</span>' : ''}</dd>
+          <dt>Customer</dt><dd>${esc(j.client)}</dd>
+          <dt>Field / well</dt><dd>${esc(j.field)} · <span class="mono">${esc(j.well)}</span></dd>
+          <dt>Location</dt><dd>${esc(j.loc)}</dd>
+          <dt>Business unit</dt><dd>${esc(j.bu)}</dd>
+          <dt>Description</dt><dd>${esc(j.desc)}</dd>
+          <dt>Service type</dt><dd>${esc(j.serviceType)}</dd>
+          <dt>Branch office</dt><dd>${esc(j.branch)}</dd>
+          <dt>Main asset</dt><dd>${(() => { const a = j.mainAsset && asset(j.mainAsset); if (!a) return '<span class="muted">Not set</span>'; const onLo = los.some(l => l.assets.includes(a.id)); return `<span class="mono">${esc(a.id)}</span> ${esc(a.name)}${onLo ? '' : ' · <span class="t-warn">not on a load-out yet</span>'}`; })()}</dd>
+          <dt>Scheduled</dt><dd class="num">${fmtDay(j.start)} – ${fmtDay(j.end)} · ${diff(j.start, j.end) + 1} days</dd>
+          <dt>Actual</dt><dd class="num">${j.actStart ? `${fmtDay(j.actStart)} – ${j.actEnd ? fmtDay(j.actEnd) : 'ongoing'}${j.actStart > j.start ? ` · <span class="t-warn">started ${diff(j.start, j.actStart)} days late</span>` : ''}` : '<span class="muted">Not started</span>'}</dd>
+          <dt>Service engineer</dt><dd>${esc(j.supervisor)}</dd>
+          <dt>Sales person</dt><dd>${esc(j.sales)}</dd>
+          <dt>Job state</dt><dd>${esc(j.status)}${isOverdue(j) ? ' · <span class="t-bad">return overdue</span>' : ''}</dd>
         </dl>
         <div class="row spread"><h3 style="font-size:16px">Load-outs (${los.length})</h3>${can.plan() && !closed(j) ? `<button class="btn sm pri" data-act="newLo" data-job="${esc(j.id)}">+ Load-out</button>` : ''}</div>
         ${loCards || '<p class="muted" style="margin:0">No load-outs yet for this job.</p>'}
         ${can.plan() && !closed(j) ? `<div class="row" style="border-top:1px solid var(--line);padding-top:14px">
           <button class="btn sm" data-act="completeJob" data-id="${esc(j.id)}" ${allReturned ? '' : 'disabled'} title="${allReturned ? '' : 'All load-outs must be returned first'}">Mark job completed</button>
-          ${j.status === 'Planned' ? `<button class="btn sm danger" data-act="cancelJob" data-id="${esc(j.id)}">Cancel job</button>` : ''}
+          ${j.status === 'Scheduled' ? `<button class="btn sm danger" data-act="cancelJob" data-id="${esc(j.id)}">Cancel job</button>` : ''}
         </div>` : ''}
       </div>
     </aside>`;
@@ -744,8 +777,8 @@ function closeModal() { $('#modal-root').innerHTML = ''; }
 function formCampaign() {
   openModal(`<h2 id="m-title">New campaign</h2>
     <form id="f" class="grid2" novalidate>
-      <label class="fld">Campaign name<input type="text" id="c-name" placeholder="e.g. Pad 9 Completions" required></label>
-      <label class="fld">Client<select id="c-client">${S.clients.map(c => `<option>${esc(c)}</option>`).join('')}</select></label>
+      <label class="fld">Campaign name<input type="text" id="c-name" placeholder="e.g. Angelin Phase 2" required></label>
+      <label class="fld">Customer<select id="c-client">${S.clients.map(c => `<option>${esc(c)}</option>`).join('')}</select></label>
       <label class="fld" style="grid-column:1/-1">Notes<textarea id="c-notes" placeholder="Scope, number of wells, anything the yard should know"></textarea></label>
       <p class="err" id="c-err" style="grid-column:1/-1"></p>
       <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn pri" type="submit">Create campaign</button></div>
@@ -764,36 +797,56 @@ function formCampaign() {
   });
 }
 
-function nextJobId() { const n = S.jobs.reduce((m, j) => Math.max(m, parseInt(j.id.slice(7), 10)), 0) + 1; return 'J-2026-' + String(n).padStart(3, '0'); }
+function nextJobId() { const n = S.jobs.reduce((m, j) => Math.max(m, parseInt(j.id.replace(/\D/g, ''), 10) || 0), 0) + 1; return 'JTKT' + String(n).padStart(8, '0'); }
+const BUSINESS_UNITS = ['Cementing', 'Well Testing', 'Wireline', 'Coiled Tubing'];
+const SERVICE_TYPES = ['Cement Casing', 'Cement Services', 'Cement Plug', 'Bulk Cement Delivery'];
 function formJob(campId) {
-  const c = campId && camp(campId);
-  let start = addDays(TODAY, 7);
-  if (c) { const js = jobsOf(c.id); if (js.length) start = addDays(js[js.length - 1].end, 2); }
-  const id = nextJobId();
-  openModal(`<h2 id="m-title">New job <span class="mono muted" style="font-size:15px">${id}</span></h2>
+  const lastOf = cid => { const js = cid ? jobsOf(cid) : []; return js[js.length - 1] || null; };
+  const prev = lastOf(campId), c = campId && camp(campId);
+  const start = prev ? addDays(prev.end, 2) : addDays(TODAY, 7);
+  const opts = (list, sel) => list.map(x => `<option ${x === sel ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  openModal(`<h2 id="m-title">New job</h2>
     <form id="f" class="grid2" novalidate>
+      <label class="fld">Ticket (SPIRA Title)<input type="text" id="j-id" class="mono" value="${nextJobId()}"></label>
       <label class="fld">Campaign<select id="j-camp"><option value="">None (standalone job)</option>${S.campaigns.map(x => `<option value="${esc(x.id)}" ${x.id === campId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
-      <label class="fld">Client<select id="j-client">${S.clients.map(x => `<option ${c && c.client === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
-      <label class="fld" style="grid-column:1/-1">Well site / location<input type="text" id="j-site" placeholder="e.g. Pad 7 – Well 17H"></label>
-      <label class="fld">Start date<input type="date" id="j-start" value="${start}"></label>
-      <label class="fld">End date<input type="date" id="j-end" value="${addDays(start, 10)}"></label>
-      <label class="fld" style="grid-column:1/-1">Job supervisor<input type="text" id="j-sup" placeholder="Name"></label>
+      <label class="fld">Customer<select id="j-client">${opts(S.clients, c && c.client)}</select></label>
+      <label class="fld">Business unit<select id="j-bu">${opts(BUSINESS_UNITS, prev ? prev.bu : 'Cementing')}</select></label>
+      <label class="fld">Field<input type="text" id="j-field" value="${esc(prev ? prev.field : '')}" placeholder="e.g. East Soldado"></label>
+      <label class="fld">Well<input type="text" id="j-well" placeholder="e.g. S-934-X-FU"></label>
+      <label class="fld">Location<select id="j-loc">${opts(['Land', 'Offshore'], prev ? prev.loc : 'Land')}</select></label>
+      <label class="fld">Branch office<select id="j-branch">${opts(S.branches, prev ? prev.branch : S.branches[0])}</select></label>
+      <label class="fld">Job description<input type="text" id="j-desc" placeholder="e.g. Completions"></label>
+      <label class="fld">Service type<select id="j-stype">${opts(SERVICE_TYPES, prev ? prev.serviceType : 'Cement Services')}</select></label>
+      <label class="fld">Schedule start<input type="date" id="j-start" value="${start}"></label>
+      <label class="fld">Schedule end<input type="date" id="j-end" value="${addDays(start, 10)}"></label>
+      <label class="fld">Service engineer<input type="text" id="j-sup" value="${esc(prev ? prev.supervisor : '')}" placeholder="Name"></label>
+      <label class="fld">Sales person<input type="text" id="j-sales" value="${esc(prev ? prev.sales : '')}" placeholder="Name"></label>
+      <label class="fld" style="grid-column:1/-1">Main asset<select id="j-main"><option value="">Not set</option>${S.assets.filter(a => a.cat === 'Cementing Units' && a.status !== 'Retired').map(a => `<option value="${esc(a.id)}" ${prev && prev.mainAsset === a.id ? 'selected' : ''}>${esc(a.id)} · ${esc(a.name)}</option>`).join('')}</select></label>
       <p class="err" id="j-err" style="grid-column:1/-1"></p>
       <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn pri" type="submit">Create job</button></div>
     </form>`, () => {
     const syncClient = () => { const cc = camp($('#j-camp').value); $('#j-client').disabled = !!cc; if (cc) $('#j-client').value = cc.client; };
     $('#j-camp').addEventListener('change', () => {
       syncClient();
-      const cc = camp($('#j-camp').value);
-      if (cc) { const js = jobsOf(cc.id); if (js.length) { const s = addDays(js[js.length - 1].end, 2); $('#j-start').value = s; $('#j-end').value = addDays(s, 10); } }
+      const p = lastOf($('#j-camp').value);
+      if (p) {   // next job in a campaign: start after the previous one and copy its field, branch and crew
+        const s = addDays(p.end, 2); $('#j-start').value = s; $('#j-end').value = addDays(s, 10);
+        $('#j-field').value = p.field; $('#j-loc').value = p.loc; $('#j-branch').value = p.branch; $('#j-bu').value = p.bu;
+        $('#j-stype').value = p.serviceType; $('#j-sup').value = p.supervisor; $('#j-sales').value = p.sales; $('#j-main').value = p.mainAsset || '';
+      }
     });
     syncClient();
     $('#f').addEventListener('submit', e => {
       e.preventDefault();
-      const site = $('#j-site').value.trim(), s = $('#j-start').value, en = $('#j-end').value;
-      if (!site) { $('#j-err').textContent = 'Enter the well site or location.'; return; }
-      if (!s || !en || en < s) { $('#j-err').textContent = 'The end date must be on or after the start date.'; return; }
-      S.jobs.push({ id, campaign: $('#j-camp').value || null, client: $('#j-client').value, site, start: s, end: en, supervisor: $('#j-sup').value.trim() || '—', status: 'Planned' });
+      const v = id => $(id).value.trim(), err = $('#j-err');
+      const id = v('#j-id').toUpperCase(), field = v('#j-field'), well = v('#j-well'), s = v('#j-start'), en = v('#j-end');
+      if (!id) { err.textContent = 'Enter the SPIRA ticket number.'; return; }
+      if (job(id)) { err.textContent = `${id} already exists.`; return; }
+      if (!field || !well) { err.textContent = 'Enter the field and the well.'; return; }
+      if (!s || !en || en < s) { err.textContent = 'The schedule end must be on or after the schedule start.'; return; }
+      S.jobs.push({ id, campaign: v('#j-camp') || null, client: $('#j-client').value, bu: v('#j-bu'), field, well, site: `${field} · ${well}`,
+        loc: v('#j-loc'), desc: v('#j-desc') || '—', serviceType: v('#j-stype'), branch: v('#j-branch'), sales: v('#j-sales') || '—',
+        supervisor: v('#j-sup') || '—', mainAsset: v('#j-main') || null, start: s, end: en, actStart: null, actEnd: null, status: 'Scheduled' });
       ui.month = monthStart(s);
       commit(`Job ${id} created.`);
       closeModal();
@@ -880,7 +933,7 @@ function formLoadout(jobId) {
       if (blocked.length && !can.override()) { err.textContent = 'Only an Admin can add blocked assets.'; return; }
       if (blocked.length && reason.length < 5) { err.textContent = 'Enter an override reason for the blocked assets.'; return; }
       if ([...picked].some(id => checks[id] === 'conflict')) { err.textContent = 'One of the assets is already booked on an overlapping job.'; return; }
-      const num = j.id.slice(7);
+      const num = j.id.slice(-5);
       let k = 1; while (S.loadouts.some(l => l.id === `LO-${num}-${k}`)) k++;
       const lo = { id: `LO-${num}-${k}`, job: j.id, date, truck: $('#l-truck').value.trim() || 'TBC', trailer: $('#l-trailer').value.trim() || 'TBC', driver: $('#l-driver').value.trim() || 'TBC', status: 'Planned', assets: [...picked], overrides: {} };
       blocked.forEach(id => lo.overrides[id] = reason);
@@ -900,11 +953,11 @@ function advance(loId) {
   const lo = S.loadouts.find(l => l.id === loId), j = job(lo.job);
   if (lo.status === 'Planned') {
     lo.status = 'Loaded'; setAssetStatus(lo.assets, 'Loaded Out');
-    if (j.status === 'Planned') j.status = 'Loading';
+    if (j.status === 'Scheduled') j.status = 'Active Job';
     commit(`${lo.id} signed off as loaded. Planner notified by email.`);
   } else if (lo.status === 'Loaded') {
-    lo.status = 'Delivered'; setAssetStatus(lo.assets, 'On Job'); j.status = 'Mobilized';
-    commit(`${lo.id} delivered. ${j.id} is now Mobilized.`);
+    lo.status = 'Delivered'; setAssetStatus(lo.assets, 'On Job'); j.status = 'Active Job'; if (!j.actStart) j.actStart = TODAY;
+    commit(`${lo.id} delivered. ${j.id} is on site; actual start recorded.`);
   } else if (lo.status === 'Delivered') {
     lo.status = 'Returned'; setAssetStatus(lo.assets, 'Returned – Awaiting Inspection');
     commit(`${lo.id} checked in. ${lo.assets.length} assets await inspection.`);
@@ -945,7 +998,7 @@ document.addEventListener('click', e => {
       S.loadouts = S.loadouts.filter(l => l.id !== id); releaseAssets(lo.assets);
       commit(`${id} removed. Its assets are free again.`); break;
     }
-    case 'completeJob': job(id).status = 'Completed'; commit(`${id} marked completed.`); break;
+    case 'completeJob': { const jj = job(id); jj.status = 'Completed'; if (!jj.actEnd) jj.actEnd = TODAY; commit(`${id} marked completed.`); break; }
     case 'cancelJob': {
       const ids = loadoutsOf(id).flatMap(l => l.assets);
       job(id).status = 'Cancelled'; S.loadouts = S.loadouts.filter(l => !(l.job === id && l.status === 'Planned')); releaseAssets(ids);
@@ -963,6 +1016,8 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   if (e.target.id === 'f-campaign') { ui.fCampaign = e.target.value; render(); }
   if (e.target.id === 'f-client') { ui.fClient = e.target.value; render(); }
+  if (e.target.id === 'f-field') { ui.fField = e.target.value; render(); }
+  if (e.target.id === 'f-loc') { ui.fLoc = e.target.value; render(); }
   if (e.target.id === 'role') { ui.role = e.target.value; saveStore(); render(); toast(`Now viewing as ${e.target.options[e.target.selectedIndex].text}.`); }
 });
 document.addEventListener('keydown', e => {
