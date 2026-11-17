@@ -1,0 +1,977 @@
+<title>Load Out Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: top bar with tabs, one working view below; job details slide in from the right. */
+:root {
+  --bg: #EEF1F4; --surface: #FFFFFF; --surface-2: #F6F8FA; --ink: #141A22; --muted: #4A5666; --line: #D8DEE6;
+  --accent: #E9A21B; --accent-hover: #D18F0E; --accent-ink: #1A1300; --link: #1F55B8; --focus: #1F55B8;
+  --good-bg: #DDF3E4; --good: #17643A; --info-bg: #DCE8FB; --info: #1E4592; --warn-bg: #FCEFD2; --warn: #8A4B06;
+  --bad-bg: #FBE0E0; --bad: #9B1C1C; --neutral-bg: #E5E9EF; --neutral: #3A4555;
+  --c0-bg: #E2E6EC; --c0: #334052; --c0-solid: #6B7788;
+  --c1-bg: #D7E3FC; --c1: #1C3F8C; --c1-solid: #3E6BD6;
+  --c2-bg: #CFEDE5; --c2: #0C5446; --c2-solid: #1F8C73;
+  --c3-bg: #E7DEFA; --c3: #4A2C90; --c3-solid: #7650CF;
+  --c4-bg: #F8DCE3; --c4: #86203D; --c4-solid: #C2416A;
+  --weekend: rgba(20, 26, 34, 0.035); --today: #E9A21B; --shadow: 0 10px 30px rgba(15, 20, 30, 0.18);
+  --f-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F141A; --surface: #171E27; --surface-2: #1D2530; --ink: #E7ECF2; --muted: #A3AFBF; --line: #2B3542;
+  --accent: #F0B03A; --accent-hover: #F6C66A; --accent-ink: #1A1300; --link: #8DB4FF; --focus: #8DB4FF;
+  --good-bg: #173A27; --good: #8FE0AE; --info-bg: #1B2D52; --info: #A9C6FF; --warn-bg: #3D2C0C; --warn: #F6CB7A;
+  --bad-bg: #46191B; --bad: #FFA9A9; --neutral-bg: #2A3341; --neutral: #C7D0DC;
+  --c0-bg: #2A3341; --c0: #D3DAE4; --c0-solid: #8995A6;
+  --c1-bg: #203766; --c1: #CFE0FF; --c1-solid: #6F95EC;
+  --c2-bg: #11443A; --c2: #BDF0E2; --c2-solid: #3DB698;
+  --c3-bg: #35265F; --c3: #DED2FF; --c3-solid: #9C80EA;
+  --c4-bg: #55202F; --c4: #FFD0DC; --c4-solid: #E0688F;
+  --weekend: rgba(255, 255, 255, 0.03); --today: #F0B03A; --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0F141A; --surface: #171E27; --surface-2: #1D2530; --ink: #E7ECF2; --muted: #A3AFBF; --line: #2B3542;
+  --accent: #F0B03A; --accent-hover: #F6C66A; --accent-ink: #1A1300; --link: #8DB4FF; --focus: #8DB4FF;
+  --good-bg: #173A27; --good: #8FE0AE; --info-bg: #1B2D52; --info: #A9C6FF; --warn-bg: #3D2C0C; --warn: #F6CB7A;
+  --bad-bg: #46191B; --bad: #FFA9A9; --neutral-bg: #2A3341; --neutral: #C7D0DC;
+  --c0-bg: #2A3341; --c0: #D3DAE4; --c0-solid: #8995A6;
+  --c1-bg: #203766; --c1: #CFE0FF; --c1-solid: #6F95EC;
+  --c2-bg: #11443A; --c2: #BDF0E2; --c2-solid: #3DB698;
+  --c3-bg: #35265F; --c3: #DED2FF; --c3-solid: #9C80EA;
+  --c4-bg: #55202F; --c4: #FFD0DC; --c4-solid: #E0688F;
+  --weekend: rgba(255, 255, 255, 0.03); --today: #F0B03A; --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+a { color: var(--link); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-size: 0.92em; letter-spacing: -0.01em; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Top bar */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--surface); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding-block: 10px; max-width: 1400px; margin: 0 auto; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.logo { width: 34px; height: 34px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.brand b { font-family: var(--f-display); font-size: 18px; }
+.nav { display: flex; gap: 2px; overflow-x: auto; flex: 1 1 360px; min-width: 0; }
+.nav a { padding: 9px 12px; border-radius: 8px; text-decoration: none; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.nav a:hover { background: var(--surface-2); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--ink); color: var(--surface); }
+.who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.who label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.demo-note { font-size: 12px; color: var(--muted); }
+
+/* Generic controls */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none; }
+.btn:hover { background: var(--surface-2); }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.pri:hover { background: var(--accent-hover); }
+.btn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.danger { color: var(--bad); border-color: var(--bad); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+select, input[type="text"], input[type="date"], textarea { min-height: 38px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+textarea { min-height: 70px; resize: vertical; width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; padding: 2px; background: var(--surface-2); }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 7px; font-weight: 600; color: var(--muted); cursor: pointer; min-height: 32px; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--good); } .pill.info { background: var(--info-bg); color: var(--info); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.neutral { background: var(--neutral-bg); color: var(--neutral); }
+.t-bad { color: var(--bad); font-weight: 600; } .t-warn { color: var(--warn); font-weight: 600; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.c0 { --cb: var(--c0-bg); --cf: var(--c0); --cs: var(--c0-solid); } .c1 { --cb: var(--c1-bg); --cf: var(--c1); --cs: var(--c1-solid); }
+.c2 { --cb: var(--c2-bg); --cf: var(--c2); --cs: var(--c2-solid); } .c3 { --cb: var(--c3-bg); --cf: var(--c3); --cs: var(--c3-solid); }
+.c4 { --cb: var(--c4-bg); --cf: var(--c4); --cs: var(--c4-solid); }
+.sw { background: var(--cs); }
+
+/* Page */
+main { max-width: 1400px; margin: 0 auto; padding-block: 20px 48px; display: flex; flex-direction: column; gap: 16px; }
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.page-head h1 { font-size: 26px; }
+.page-head p { margin: 2px 0 0; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px; }
+.toolbar .grow { flex: 1 1 auto; }
+.month-title { font-family: var(--f-display); font-size: 20px; font-weight: 700; min-width: 170px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); padding: 0 12px 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Month grid */
+.cal { border-top: 1px solid var(--line); overflow: hidden; border-radius: 0 0 12px 12px; }
+.dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--line); }
+.dow div { padding: 8px; }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); min-height: 118px; border-bottom: 1px solid var(--line); row-gap: 3px; }
+.week:last-child { border-bottom: 0; }
+.day { grid-row: 1 / -1; border-right: 1px solid var(--line); padding: 6px 8px; }
+.day:nth-child(7) { border-right: 0; }
+.day.wkend { background: var(--weekend); }
+.day.out .dnum { color: var(--muted); opacity: 0.6; }
+.dnum { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.day.today .dnum { background: var(--today); color: var(--accent-ink); border-radius: 999px; padding: 1px 7px; }
+.bar { position: relative; z-index: 1; display: flex; align-items: center; gap: 6px; min-width: 0; height: 24px; margin: 0 3px; padding: 0 8px; border: 0; border-radius: 6px; background: var(--cb); color: var(--cf); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-shadow: inset 3px 0 0 var(--cs); }
+.bar.cl { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; box-shadow: none; }
+.bar.cr { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
+.bar span { overflow: hidden; text-overflow: ellipsis; }
+.bar:hover { filter: brightness(0.96); }
+.bar.overdue { outline: 2px solid var(--bad); outline-offset: -2px; }
+.bar.cancelled { opacity: 0.55; text-decoration: line-through; }
+.marks { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 3px; padding: 2px 4px 6px; min-width: 0; }
+.chip { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 2px 6px; border-radius: 5px; border: 1px dashed var(--cs); background: var(--surface); color: var(--ink); font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.chip svg { flex: none; }
+.chip.done { border-style: solid; opacity: 0.7; }
+
+/* Timeline */
+.tl-scroll { overflow-x: auto; border-top: 1px solid var(--line); }
+.tl { position: relative; }
+.tl-col { position: absolute; top: 0; bottom: 0; background: var(--weekend); pointer-events: none; }
+.tl-now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--today); z-index: 1; pointer-events: none; }
+.tl-row { display: flex; border-bottom: 1px solid var(--line); min-height: 38px; }
+.tl-row.grp { background: var(--surface-2); }
+.tl-label { position: sticky; left: 0; z-index: 3; flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--surface); border-right: 1px solid var(--line); font-size: 13px; min-width: 0; overflow: hidden; }
+.tl-row.grp .tl-label { background: var(--surface-2); font-weight: 700; }
+.tl-label .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-track { position: relative; flex: none; }
+.tl-head .tl-track { display: flex; }
+.tl-d { flex: none; text-align: center; font-size: 11px; color: var(--muted); padding: 4px 0; font-variant-numeric: tabular-nums; }
+.tl-d.m { color: var(--ink); font-weight: 700; }
+.tl-bar { position: absolute; top: 7px; height: 24px; border: 0; border-radius: 6px; background: var(--cb); color: var(--cf); font-size: 12px; font-weight: 600; padding: 0 8px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; z-index: 2; box-shadow: inset 3px 0 0 var(--cs); }
+.tl-bar.thin { top: 15px; height: 8px; padding: 0; background: var(--cs); opacity: 0.5; cursor: default; box-shadow: none; }
+.tl-bar.faded { opacity: 0.45; }
+.tl-bar.late { background: repeating-linear-gradient(135deg, var(--bad-bg) 0 6px, transparent 6px 10px); color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
+.tl-lo { position: absolute; top: 9px; width: 20px; height: 20px; border: 2px solid var(--surface); border-radius: 4px; background: var(--cs); transform: rotate(45deg); cursor: pointer; z-index: 3; padding: 0; }
+
+/* Tables */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--surface-2); }
+td { padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--link); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.section-title { font-size: 16px; padding: 14px 14px 0; }
+
+/* Campaigns */
+.camp { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.camp-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-start; justify-content: space-between; }
+.camp-head h2 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 13px; }
+.prog { height: 8px; border-radius: 999px; background: var(--neutral-bg); overflow: hidden; width: 160px; }
+.prog i { display: block; height: 100%; background: var(--cs); }
+.seq { display: flex; align-items: stretch; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.seq-job { flex: 0 0 220px; display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); text-align: left; cursor: pointer; }
+.seq-job:hover { border-color: var(--cs); }
+.seq-arrow { flex: none; align-self: center; color: var(--muted); }
+.seq-add { flex: 0 0 140px; border: 1.5px dashed var(--line); border-radius: 10px; background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; min-height: 110px; }
+.seq-add:hover { border-color: var(--accent); color: var(--ink); }
+
+/* Drawer + modal */
+.overlay { position: fixed; inset: 0; z-index: 40; background: rgba(10, 14, 20, 0.45); }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 41; width: min(460px, 100%); background: var(--surface); box-shadow: var(--shadow); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.drawer-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.drawer-body { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+dl.kv { margin: 0; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; font-size: 14px; }
+dl.kv dt { color: var(--muted); font-size: 13px; }
+dl.kv dd { margin: 0; }
+.camp-box { padding: 12px; border-radius: 10px; background: var(--cb); color: var(--cf); display: flex; flex-direction: column; gap: 8px; }
+.camp-box .btn { background: var(--surface); color: var(--ink); }
+.lo-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.lo-card ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.lo-card li { display: flex; gap: 8px; flex-wrap: wrap; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.spread { justify-content: space-between; }
+.sheet-wrap { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px)); background: rgba(10, 14, 20, 0.5); }
+.sheet { width: min(640px, 100%); background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.sheet h2 { font-size: 20px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.fld > * { font-size: 14px; font-weight: 400; color: var(--ink); }
+.pick { max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+.pick-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); min-height: 44px; cursor: pointer; }
+.pick-row:last-child { border-bottom: 0; }
+.pick-row input { width: 18px; height: 18px; accent-color: var(--accent-hover); flex: none; }
+.pick-row .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pick-row .note { font-size: 12px; }
+.pick-row.dis { cursor: not-allowed; background: var(--surface-2); }
+.pick-row.dis .nm { opacity: 0.7; }
+.err { color: var(--bad); font-weight: 600; margin: 0; min-height: 1em; }
+.callout { padding: 10px 12px; border-radius: 10px; background: var(--info-bg); color: var(--info); font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; font-weight: 600; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
+.empty { padding: 28px; text-align: center; color: var(--muted); }
+@media (max-width: 640px) {
+  .week { min-height: 96px; }
+  .day { padding: 4px; }
+  .bar { font-size: 11px; padding: 0 4px; margin: 0 1px; }
+  .chip .lbl { display: none; }
+  .dow div { padding: 6px 4px; }
+}
+@media (prefers-reduced-motion: no-preference) { .drawer { animation: slide 0.18s ease-out; } @keyframes slide { from { transform: translateX(24px); opacity: 0; } } }
+</style>
+
+<header class="top">
+  <div class="top-in wrap">
+    <a class="brand" href="#calendar" aria-label="Load Out Planner home">
+      <span class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1A1300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg></span>
+      <b>Load Out Planner</b>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#calendar" data-view="calendar">Calendar</a>
+      <a href="#campaigns" data-view="campaigns">Campaigns</a>
+      <a href="#jobs" data-view="jobs">Jobs</a>
+      <a href="#loadouts" data-view="loadouts">Load-outs</a>
+      <a href="#assets" data-view="assets">Assets</a>
+    </nav>
+    <div class="who">
+      <label for="role">Signed in as</label>
+      <select id="role">
+        <option value="Admin">Alex Morgan · Admin</option>
+        <option value="Planner">Priya Shah · Planner</option>
+        <option value="Yard">Dan Kowalski · Yard</option>
+        <option value="Viewer">Lee Chen · Viewer</option>
+      </select>
+      <button class="btn sm ghost" type="button" data-act="reset">Reset demo</button>
+    </div>
+  </div>
+</header>
+
+<main id="view" class="wrap" aria-live="polite"></main>
+<div id="drawer-root"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script>
+/* =====================================================================
+   Load Out Planner – single-file demo.
+   Data model: Campaign (series of Jobs) -> Job -> Load-out -> Assets.
+   Everything runs in the browser; changes are kept in this browser only.
+   ===================================================================== */
+const TODAY = '2026-11-17';               // fixed "today" so the demo data always lines up
+const STORE_KEY = 'load-out-planner-demo-v1';
+
+// ---------- date helpers (ISO yyyy-mm-dd strings, UTC) ----------
+const D = s => { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const iso = dt => dt.toISOString().slice(0, 10);
+const addDays = (s, n) => { const d = D(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+const diff = (a, b) => Math.round((D(b) - D(a)) / 864e5);            // days from a to b
+const overlaps = (a1, a2, b1, b2) => a1 <= b2 && b1 <= a2;
+const maxD = (a, b) => (a > b ? a : b), minD = (a, b) => (a < b ? a : b);
+const fmt = s => D(s).toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const fmtY = s => D(s).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const fmtDay = s => D(s).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const monthStart = s => s.slice(0, 8) + '01';
+const monthEnd = s => { const d = D(monthStart(s)); return iso(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))); };
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = sel => document.querySelector(sel);
+
+// ---------- sample data ----------
+function seed() {
+  return {
+    clients: ['Northwind Energy', 'Cedar Ridge Operating', 'Basin Crest Resources'],
+    campaigns: [
+      { id: 'CMP-01', name: 'Pad 7 Completions', client: 'Northwind Energy', color: 1, notes: 'Three-well zipper frac program, wells 14H to 16H. Equipment moves well to well.' },
+      { id: 'CMP-02', name: 'Ute Flats Program', client: 'Basin Crest Resources', color: 2, notes: 'Two-well workover campaign.' }
+    ],
+    jobs: [
+      { id: 'J-2026-038', campaign: null, client: 'Cedar Ridge Operating', site: 'Kestrel 3-22', start: '2026-11-10', end: '2026-11-15', supervisor: 'T. Okafor', status: 'Mobilized' },
+      { id: 'J-2026-041', campaign: 'CMP-01', client: 'Northwind Energy', site: 'Pad 7 – Well 14H', start: '2026-11-20', end: '2026-12-04', supervisor: 'R. Delgado', status: 'Planned' },
+      { id: 'J-2026-043', campaign: 'CMP-02', client: 'Basin Crest Resources', site: 'Ute Flats 9', start: '2026-11-26', end: '2026-12-10', supervisor: 'S. Begay', status: 'Planned' },
+      { id: 'J-2026-044', campaign: 'CMP-01', client: 'Northwind Energy', site: 'Pad 7 – Well 15H', start: '2026-12-06', end: '2026-12-16', supervisor: 'R. Delgado', status: 'Planned' },
+      { id: 'J-2026-045', campaign: null, client: 'Cedar Ridge Operating', site: 'Kestrel 4-10', start: '2026-12-01', end: '2026-12-05', supervisor: 'T. Okafor', status: 'Planned' },
+      { id: 'J-2026-047', campaign: 'CMP-01', client: 'Northwind Energy', site: 'Pad 7 – Well 16H', start: '2026-12-18', end: '2026-12-30', supervisor: 'R. Delgado', status: 'Planned' },
+      { id: 'J-2026-048', campaign: 'CMP-02', client: 'Basin Crest Resources', site: 'Ute Flats 11', start: '2026-12-14', end: '2026-12-23', supervisor: 'S. Begay', status: 'Planned' }
+    ],
+    loadouts: [
+      { id: 'LO-038-1', job: 'J-2026-038', date: '2026-11-09', truck: 'T-09', trailer: 'FB-17', driver: 'Luis Ortega', status: 'Delivered', assets: ['TK-5001', 'PC-1004', 'HS-6005'], overrides: {} },
+      { id: 'LO-041-1', job: 'J-2026-041', date: '2026-11-19', truck: 'T-14', trailer: 'FB-22', driver: 'Marco Ruiz', status: 'Planned', assets: ['PC-1001', 'LF-2003', 'GN-4002', 'HS-6002'], overrides: {} },
+      { id: 'LO-041-2', job: 'J-2026-041', date: '2026-11-23', truck: 'T-21', trailer: 'LB-03 Lowboy', driver: 'Marco Ruiz', status: 'Planned', assets: ['PU-3001'], overrides: {} },
+      { id: 'LO-043-1', job: 'J-2026-043', date: '2026-11-24', truck: 'T-11', trailer: 'LB-05 Lowboy', driver: 'Jake Moreno', status: 'Planned', assets: ['PU-3003', 'PC-1003', 'HS-6004'], overrides: {} }
+    ],
+    assets: [
+      ['PC-1001', 'Frac valve 7-1/16" 10K', 'Pressure Control', 'Reserved', '2026-12-02'],
+      ['PC-1002', 'Frac valve 7-1/16" 10K', 'Pressure Control', 'Available', '2027-03-14'],
+      ['PC-1003', 'Frac valve 5-1/8" 15K', 'Pressure Control', 'Reserved', '2027-02-20'],
+      ['PC-1004', 'Wellhead isolation tool', 'Pressure Control', 'On Job', '2027-01-20'],
+      ['LF-2003', 'Spreader bar 20 t', 'Lifting', 'Reserved', '2026-12-09'],
+      ['LF-2005', 'Shackle set 35 t', 'Lifting', 'Available', '2027-04-02'],
+      ['LF-2007', 'Chain sling 4-leg 11 t', 'Lifting', 'Out of Service', '2026-11-08'],
+      ['PU-3001', 'Triplex pump 600 hp', 'Pumps', 'Reserved', '2027-05-01'],
+      ['PU-3002', 'Transfer pump 4"', 'Pumps', 'In Maintenance', '2027-02-11'],
+      ['PU-3003', 'Triplex pump 600 hp', 'Pumps', 'Reserved', '2027-03-30'],
+      ['GN-4002', 'Generator 150 kW', 'Generators', 'Reserved', '2026-12-11'],
+      ['GN-4003', 'Generator 75 kW', 'Generators', 'Available', '2027-06-15'],
+      ['TK-5001', 'Frac tank 500 bbl', 'Tanks', 'On Job', '2027-04-18'],
+      ['TK-5002', 'Frac tank 500 bbl', 'Tanks', 'Available', '2027-04-18'],
+      ['HS-6002', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'Reserved', '2027-06-30'],
+      ['HS-6003', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'Returned – Awaiting Inspection', '2026-12-15'],
+      ['HS-6004', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'Reserved', '2027-06-30'],
+      ['HS-6005', 'HP hose 3" 15K × 20 ft', 'Hoses & Iron', 'On Job', '2027-06-30'],
+      ['LT-7001', 'Light tower 4 × 1000 W', 'Site Equipment', 'Retired', null],
+      ['LT-7002', 'Light tower 4 × 1000 W', 'Site Equipment', 'Available', '2027-08-01']
+    ].map(([id, name, cat, status, cert]) => ({ id, name, cat, status, cert }))
+  };
+}
+
+// ---------- state ----------
+function loadStore() { try { const s = localStorage.getItem(STORE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function saveStore() { try { localStorage.setItem(STORE_KEY, JSON.stringify({ data: S, role: ui.role })); } catch (e) { /* storage unavailable: demo still works in memory */ } }
+const stored = loadStore();
+let S = stored && stored.data ? stored.data : seed();
+const ui = { view: 'calendar', month: monthStart(TODAY), mode: 'month', group: 'campaign', fCampaign: 'all', fClient: 'all', role: (stored && stored.role) || 'Planner', openJob: null };
+
+const job = id => S.jobs.find(j => j.id === id);
+const camp = id => S.campaigns.find(c => c.id === id);
+const asset = id => S.assets.find(a => a.id === id);
+const loadoutsOf = jobId => S.loadouts.filter(l => l.job === jobId).sort((a, b) => a.date.localeCompare(b.date));
+const jobsOf = campId => S.jobs.filter(j => j.campaign === campId).sort((a, b) => a.start.localeCompare(b.start));
+const colorOf = j => 'c' + (j && j.campaign && camp(j.campaign) ? camp(j.campaign).color : 0);
+const closed = j => j.status === 'Completed' || j.status === 'Cancelled';
+const can = {
+  plan: () => ui.role === 'Admin' || ui.role === 'Planner',
+  yard: () => ui.role === 'Admin' || ui.role === 'Yard',
+  override: () => ui.role === 'Admin'
+};
+
+const PILL = {
+  'Available': 'good', 'Reserved': 'info', 'Loaded Out': 'info', 'On Job': 'info', 'Returned – Awaiting Inspection': 'warn',
+  'In Maintenance': 'warn', 'Out of Service': 'bad', 'Retired': 'neutral',
+  'Planned': 'neutral', 'Loading': 'info', 'Mobilized': 'info', 'Completed': 'good', 'Cancelled': 'bad',
+  'Loaded': 'info', 'Delivered': 'info', 'Returned': 'good', 'Active': 'info', 'Complete': 'good', 'Overdue': 'bad'
+};
+const pill = s => `<span class="pill ${PILL[s] || 'neutral'}">${esc(s)}</span>`;
+const truckIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg>';
+
+function campaignSpan(c) {
+  const js = jobsOf(c.id);
+  if (!js.length) return null;
+  return { start: js[0].start, end: js.reduce((m, j) => maxD(m, j.end), js[0].end) };
+}
+function campaignStatus(c) {
+  const js = jobsOf(c.id).filter(j => j.status !== 'Cancelled');
+  if (js.length && js.every(j => j.status === 'Completed')) return 'Complete';
+  if (js.some(j => j.status === 'Loading' || j.status === 'Mobilized' || (j.start <= TODAY && TODAY <= j.end))) return 'Active';
+  return 'Planned';
+}
+const isOverdue = j => j.end < TODAY && !closed(j) && j.status !== 'Planned';
+
+// ---------- booking rules ----------
+// The window an asset is tied up for one load-out: load date -> job end
+// (or today, if the job is overdue and the asset is still out).
+function bookingWindow(lo) {
+  const j = job(lo.job);
+  let end = j.end;
+  if ((lo.status === 'Loaded' || lo.status === 'Delivered') && !closed(j)) end = maxD(end, TODAY);
+  return { from: lo.date, to: end };
+}
+// Can asset `a` go on a load-out from `from` to `to`? Returns block / conflict / warn reasons.
+function checkAsset(a, from, to, excludeLo) {
+  const r = { block: null, conflict: null, warn: null };
+  if (['Out of Service', 'In Maintenance', 'Retired'].includes(a.status)) r.block = a.status;
+  else if (a.cert && a.cert < from) r.block = 'Certification expired ' + fmtY(a.cert);
+  for (const lo of S.loadouts) {
+    if (lo.id === excludeLo || lo.status === 'Returned' || !lo.assets.includes(a.id)) continue;
+    const j = job(lo.job);
+    if (closed(j)) continue;
+    const w = bookingWindow(lo);
+    if (overlaps(from, to, w.from, w.to)) { r.conflict = `Booked on ${j.id} (${fmt(w.from)} – ${fmt(w.to)})${isOverdue(j) ? ', still out, overdue' : ''}`; break; }
+  }
+  if (!r.block && a.cert && a.cert < to) r.warn = `Cert expires ${fmt(a.cert)}, before job end ${fmt(to)}`;
+  if (!r.block && a.status === 'Returned – Awaiting Inspection') r.warn = (r.warn ? r.warn + ' · ' : '') + 'Awaiting inspection';
+  // still physically out on an overdue job: allowed, but flag it
+  if (!r.conflict) {
+    const out = S.loadouts.find(l => l.id !== excludeLo && (l.status === 'Loaded' || l.status === 'Delivered') && l.assets.includes(a.id) && isOverdue(job(l.job)));
+    if (out) r.warn = (r.warn ? r.warn + ' · ' : '') + `Still out on ${out.job} (overdue return)`;
+  }
+  return r;
+}
+function setAssetStatus(ids, status) { ids.forEach(id => { const a = asset(id); if (a) a.status = status; }); }
+// After a load-out is removed, put assets back to Available if nothing else reserves them.
+function releaseAssets(ids) {
+  ids.forEach(id => {
+    const a = asset(id);
+    if (!a || a.status !== 'Reserved') return;
+    const still = S.loadouts.some(l => l.status === 'Planned' && l.assets.includes(id) && !closed(job(l.job)));
+    if (!still) a.status = 'Available';
+  });
+}
+
+// ---------- filters ----------
+function jobVisible(j) {
+  const fc = ui.fCampaign === 'all' || (ui.fCampaign === 'none' ? !j.campaign : j.campaign === ui.fCampaign);
+  const fl = ui.fClient === 'all' || j.client === ui.fClient;
+  return fc && fl;
+}
+function filterControls() {
+  return `
+    <select id="f-campaign" aria-label="Filter by campaign">
+      <option value="all">All campaigns</option>
+      ${S.campaigns.map(c => `<option value="${esc(c.id)}" ${ui.fCampaign === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+      <option value="none" ${ui.fCampaign === 'none' ? 'selected' : ''}>Standalone jobs</option>
+    </select>
+    <select id="f-client" aria-label="Filter by client">
+      <option value="all">All clients</option>
+      ${S.clients.map(c => `<option ${ui.fClient === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+    </select>`;
+}
+function legend() {
+  return `<div class="legend" aria-label="Legend">
+    ${S.campaigns.map(c => `<span class="c${c.color}"><i class="sw"></i>${esc(c.name)}</span>`).join('')}
+    <span class="c0"><i class="sw"></i>Standalone job</span>
+    <span><span class="chip c0" style="pointer-events:none">${truckIcon}</span>Load-out</span>
+    <span><i class="sw" style="background:transparent;outline:2px solid var(--bad);outline-offset:-2px"></i>Overdue return</span>
+  </div>`;
+}
+
+// =====================================================================
+// VIEWS
+// =====================================================================
+function viewCalendar() {
+  const title = D(ui.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const body = ui.mode === 'month' ? monthGrid() : timeline();
+  const range = ui.mode === 'month' ? [monthStart(ui.month), monthEnd(ui.month)] : timelineRange();
+  const los = S.loadouts.filter(l => l.date >= range[0] && l.date <= range[1] && jobVisible(job(l.job))).sort((a, b) => a.date.localeCompare(b.date));
+  return `
+  <div class="page-head">
+    <div><h1>Calendar</h1><p>Jobs, campaigns and load-outs. Today is ${fmtDay(TODAY)}.</p></div>
+    ${can.plan() ? `<div class="row"><button class="btn" data-act="newJob">+ Job</button><button class="btn pri" data-act="newLo">+ Load-out</button></div>` : ''}
+  </div>
+  <section class="panel" aria-label="Calendar">
+    <div class="toolbar">
+      <button class="btn sm" data-act="prev" aria-label="Previous month">‹</button>
+      <button class="btn sm" data-act="today">Today</button>
+      <button class="btn sm" data-act="next" aria-label="Next month">›</button>
+      <span class="month-title">${title}</span>
+      <span class="grow"></span>
+      <div class="seg" role="group" aria-label="Calendar view">
+        <button data-act="mode" data-v="month" aria-pressed="${ui.mode === 'month'}">Month</button>
+        <button data-act="mode" data-v="timeline" aria-pressed="${ui.mode === 'timeline'}">Timeline</button>
+      </div>
+      ${ui.mode === 'timeline' ? `<div class="seg" role="group" aria-label="Timeline rows">
+        <button data-act="group" data-v="campaign" aria-pressed="${ui.group === 'campaign'}">By campaign</button>
+        <button data-act="group" data-v="asset" aria-pressed="${ui.group === 'asset'}">By asset</button>
+      </div>` : ''}
+      ${filterControls()}
+    </div>
+    ${legend()}
+    ${body}
+  </section>
+  <section class="panel" aria-label="Load-outs in view">
+    <h2 class="section-title">Load-outs ${ui.mode === 'month' ? 'this month' : 'in this window'}</h2>
+    ${loadoutTable(los)}
+  </section>`;
+}
+
+function monthGrid() {
+  const first = monthStart(ui.month), last = monthEnd(ui.month);
+  let ws = addDays(first, -D(first).getUTCDay());
+  const jobs = S.jobs.filter(jobVisible);
+  let html = `<div class="cal"><div class="dow">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => `<div>${d}</div>`).join('')}</div>`;
+  while (ws <= last) {
+    const we = addDays(ws, 6);
+    // lay job segments into lanes so bars never overlap
+    const segs = jobs.filter(j => overlaps(j.start, j.end, ws, we))
+      .sort((a, b) => a.start.localeCompare(b.start) || b.end.localeCompare(a.end));
+    const lanes = [];
+    const bars = segs.map(j => {
+      const s = maxD(j.start, ws), e = minD(j.end, we);
+      let lane = lanes.findIndex(end => end < s);
+      if (lane < 0) { lane = lanes.length; lanes.push(e); } else lanes[lane] = e;
+      const cls = [colorOf(j), j.start < ws ? 'cl' : '', j.end > we ? 'cr' : '', isOverdue(j) ? 'overdue' : '', j.status === 'Cancelled' ? 'cancelled' : ''].join(' ');
+      const tip = `${j.id} · ${j.site} · ${fmt(j.start)} – ${fmt(j.end)} · ${j.status}${isOverdue(j) ? ' · return overdue' : ''}`;
+      return `<button class="bar ${cls}" style="grid-column:${diff(ws, s) + 1} / span ${diff(s, e) + 1};grid-row:${lane + 2}" data-act="openJob" data-id="${esc(j.id)}" title="${esc(tip)}"><span class="mono">${esc(j.id.slice(7))}</span><span>${esc(j.site)}</span></button>`;
+    });
+    const L = Math.max(lanes.length, 1);
+    let days = '', marks = '';
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(ws, i), dow = D(d).getUTCDay();
+      const cls = ['day', d < first || d > last ? 'out' : '', d === TODAY ? 'today' : '', dow === 0 || dow === 6 ? 'wkend' : ''].join(' ');
+      days += `<div class="${cls}" style="grid-column:${i + 1}"><span class="dnum">${D(d).getUTCDate()}</span></div>`;
+      const dayLos = S.loadouts.filter(l => l.date === d && jobVisible(job(l.job)));
+      if (dayLos.length) {
+        marks += `<div class="marks" style="grid-column:${i + 1};grid-row:${L + 2}">${dayLos.map(l => {
+          const j = job(l.job);
+          return `<button class="chip ${colorOf(j)} ${l.status !== 'Planned' ? 'done' : ''}" data-act="openJob" data-id="${esc(j.id)}" title="${esc(`${l.id} for ${j.id} · ${l.truck} · ${l.driver} · ${l.assets.length} assets · ${l.status}`)}">${truckIcon}<span class="lbl mono">${esc(l.id.slice(3))}</span></button>`;
+        }).join('')}</div>`;
+      }
+    }
+    html += `<div class="week" style="grid-template-rows:28px repeat(${L}, 24px) auto minmax(6px, 1fr)">${days}${bars.join('')}${marks}</div>`;
+    ws = addDays(ws, 7);
+  }
+  return html + '</div>';
+}
+
+const TL_DAYS = 63, TL_DW = 28, TL_LW = 220;
+function timelineRange() { const s = addDays(monthStart(ui.month), -D(monthStart(ui.month)).getUTCDay()); return [s, addDays(s, TL_DAYS - 1)]; }
+function timeline() {
+  const [start, end] = timelineRange();
+  const W = TL_DAYS * TL_DW;
+  const px = d => diff(start, d) * TL_DW;
+  const barPos = (s, e) => { const a = maxD(s, start), b = minD(e, end); return a > b ? null : `left:${px(a) + 1}px;width:${(diff(a, b) + 1) * TL_DW - 2}px`; };
+  // background: weekends + today line, drawn once under all rows
+  let bg = '';
+  for (let i = 0; i < TL_DAYS; i++) { const dow = D(addDays(start, i)).getUTCDay(); if (dow === 0 || dow === 6) bg += `<div class="tl-col" style="left:${TL_LW + i * TL_DW}px;width:${TL_DW}px"></div>`; }
+  if (TODAY >= start && TODAY <= end) bg += `<div class="tl-now" style="left:${TL_LW + px(TODAY) + TL_DW / 2 - 1}px" title="Today"></div>`;
+  let head = '';
+  for (let i = 0; i < TL_DAYS; i++) { const d = addDays(start, i), dd = D(d).getUTCDate(); head += `<div class="tl-d ${dd === 1 ? 'm' : ''}" style="width:${TL_DW}px">${dd === 1 ? D(d).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) : dd}</div>`; }
+  const row = (label, track, grp) => `<div class="tl-row ${grp ? 'grp' : ''}"><div class="tl-label" style="width:${TL_LW}px">${label}</div><div class="tl-track" style="width:${W}px">${track}</div></div>`;
+  let rows = '';
+
+  if (ui.group === 'campaign') {
+    const jobRow = j => {
+      const pos = barPos(j.start, j.end);
+      let t = pos ? `<button class="tl-bar ${colorOf(j)} ${isOverdue(j) ? 'late' : ''}" style="${pos}" data-act="openJob" data-id="${esc(j.id)}" title="${esc(`${j.id} · ${j.site} · ${fmt(j.start)} – ${fmt(j.end)} · ${j.status}`)}">${esc(j.site)}</button>` : '';
+      loadoutsOf(j.id).forEach(l => { if (l.date >= start && l.date <= end) t += `<button class="tl-lo ${colorOf(j)}" style="left:${px(l.date) + 4}px" data-act="openJob" data-id="${esc(j.id)}" title="${esc(`${l.id} · load-out ${fmt(l.date)} · ${l.truck} · ${l.assets.length} assets · ${l.status}`)}" aria-label="${esc(l.id)} load-out ${esc(fmt(l.date))}"></button>`; });
+      return row(`<span class="mono">${esc(j.id)}</span><span class="pill ${PILL[j.status]}" style="margin-left:auto">${esc(j.status)}</span>`, t);
+    };
+    S.campaigns.forEach(c => {
+      const js = jobsOf(c.id).filter(jobVisible);
+      if (!js.length) return;
+      const sp = campaignSpan(c), pos = barPos(sp.start, sp.end);
+      rows += row(`<i class="sw c${c.color}"></i><span class="t">${esc(c.name)}</span>`, pos ? `<div class="tl-bar thin c${c.color}" style="${pos}"></div>` : '', true);
+      js.forEach(j => rows += jobRow(j));
+    });
+    const solo = S.jobs.filter(j => !j.campaign && jobVisible(j)).sort((a, b) => a.start.localeCompare(b.start));
+    if (solo.length) { rows += row(`<i class="sw c0"></i><span class="t">Standalone jobs</span>`, '', true); solo.forEach(j => rows += jobRow(j)); }
+  } else {
+    S.assets.forEach(a => {
+      const los = S.loadouts.filter(l => l.assets.includes(a.id) && jobVisible(job(l.job)));
+      if (!los.length) return;
+      let t = '';
+      los.forEach(l => {
+        const j = job(l.job);
+        const pos = barPos(l.date, j.end);
+        if (pos) t += `<button class="tl-bar ${colorOf(j)} ${l.status === 'Returned' ? 'faded' : ''}" style="${pos}" data-act="openJob" data-id="${esc(j.id)}" title="${esc(`${a.id} on ${j.id} via ${l.id} · ${fmt(l.date)} – ${fmt(j.end)}`)}">${esc(j.id)}</button>`;
+        // still out after the job ended: show the overdue stretch up to today
+        if ((l.status === 'Loaded' || l.status === 'Delivered') && j.end < TODAY && !closed(j)) {
+          const p2 = barPos(addDays(j.end, 1), TODAY);
+          if (p2) t += `<button class="tl-bar late" style="${p2}" data-act="openJob" data-id="${esc(j.id)}" title="Overdue return">Overdue</button>`;
+        }
+      });
+      rows += row(`<span class="mono">${esc(a.id)}</span><span class="t muted">${esc(a.name)}</span>`, t);
+    });
+  }
+  if (!rows) rows = `<div class="empty">Nothing matches these filters.</div>`;
+  return `<div class="tl-scroll"><div class="tl" style="width:${TL_LW + W}px">${bg}
+    <div class="tl-row tl-head"><div class="tl-label" style="width:${TL_LW}px;font-weight:600">${ui.group === 'campaign' ? 'Campaign / job' : 'Asset'}</div><div class="tl-track" style="width:${W}px">${head}</div></div>
+    ${rows}</div></div>`;
+}
+
+function loadoutTable(los) {
+  if (!los.length) return `<div class="empty">No load-outs here yet.</div>`;
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>Date</th><th>Load-out</th><th>Job</th><th>Campaign</th><th>Truck / trailer</th><th>Driver</th><th>Assets</th><th>Status</th></tr></thead>
+    <tbody>${los.map(l => { const j = job(l.job), c = j.campaign && camp(j.campaign); return `<tr>
+      <td class="num">${fmtDay(l.date)}</td>
+      <td class="mono">${esc(l.id)}</td>
+      <td><button class="linkbtn mono" data-act="openJob" data-id="${esc(j.id)}">${esc(j.id)}</button> <span class="muted">${esc(j.site)}</span></td>
+      <td>${c ? `<span class="row c${c.color}"><i class="sw"></i>${esc(c.name)}</span>` : '<span class="muted">Standalone</span>'}</td>
+      <td class="mono">${esc(l.truck)} · ${esc(l.trailer)}</td>
+      <td>${esc(l.driver)}</td>
+      <td class="num">${l.assets.length}</td>
+      <td>${pill(l.status)}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+
+function viewCampaigns() {
+  const cards = S.campaigns.map(c => {
+    const js = jobsOf(c.id), sp = campaignSpan(c), st = campaignStatus(c);
+    const done = js.filter(j => j.status === 'Completed').length;
+    const assetIds = new Set(js.flatMap(j => loadoutsOf(j.id).flatMap(l => l.assets)));
+    const seq = js.map((j, i) => `${i ? '<span class="seq-arrow" aria-hidden="true">→</span>' : ''}
+      <button class="seq-job" data-act="openJob" data-id="${esc(j.id)}">
+        <span class="row spread"><span class="mono" style="font-weight:600">${esc(j.id)}</span>${pill(isOverdue(j) ? 'Overdue' : j.status)}</span>
+        <span style="font-weight:600">${esc(j.site)}</span>
+        <span class="muted num">${fmt(j.start)} – ${fmt(j.end)} · ${diff(j.start, j.end) + 1} days</span>
+        <span class="muted">${loadoutsOf(j.id).length} load-out(s)</span>
+      </button>`).join('');
+    return `<article class="panel camp c${c.color}">
+      <div class="camp-head">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h2><i class="sw" style="width:14px;height:14px"></i>${esc(c.name)} <span class="mono muted" style="font-size:13px;font-weight:500">${esc(c.id)}</span></h2>
+          <div class="meta"><span>${esc(c.client)}</span><span class="num">${sp ? `${fmtY(sp.start)} – ${fmtY(sp.end)}` : 'No jobs yet'}</span><span>${js.length} jobs</span><span>${assetIds.size} assets planned</span></div>
+          ${c.notes ? `<p style="margin:0;max-width:65ch">${esc(c.notes)}</p>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          ${pill(st)}
+          <div class="row"><div class="prog" role="img" aria-label="${done} of ${js.length} jobs completed"><i style="width:${js.length ? (done / js.length) * 100 : 0}%"></i></div><span class="muted num">${done}/${js.length} done</span></div>
+        </div>
+      </div>
+      <div class="seq">${seq}${can.plan() ? `${js.length ? '<span class="seq-arrow" aria-hidden="true">→</span>' : ''}<button class="seq-add" data-act="newJob" data-camp="${esc(c.id)}">+ Add next job</button>` : ''}</div>
+    </article>`;
+  }).join('');
+  const solo = S.jobs.filter(j => !j.campaign).sort((a, b) => a.start.localeCompare(b.start));
+  return `<div class="page-head">
+      <div><h1>Campaigns</h1><p>A campaign is a series of jobs for one client. Equipment can carry over from one job to the next.</p></div>
+      ${can.plan() ? `<button class="btn pri" data-act="newCamp">+ New campaign</button>` : ''}
+    </div>
+    ${cards || '<div class="panel empty">No campaigns yet.</div>'}
+    <section class="panel camp c0">
+      <h2 style="font-size:18px">Standalone jobs</h2>
+      <div class="seq">${solo.map(j => `<button class="seq-job" data-act="openJob" data-id="${esc(j.id)}">
+        <span class="row spread"><span class="mono" style="font-weight:600">${esc(j.id)}</span>${pill(isOverdue(j) ? 'Overdue' : j.status)}</span>
+        <span style="font-weight:600">${esc(j.site)}</span><span class="muted">${esc(j.client)}</span>
+        <span class="muted num">${fmt(j.start)} – ${fmt(j.end)}</span></button>`).join('') || '<span class="muted">None</span>'}</div>
+    </section>`;
+}
+
+function viewJobs() {
+  const js = S.jobs.filter(jobVisible).sort((a, b) => a.start.localeCompare(b.start));
+  return `<div class="page-head">
+      <div><h1>Jobs</h1><p>${js.length} jobs</p></div>
+      <div class="row">${filterControls()}${can.plan() ? `<button class="btn pri" data-act="newJob">+ New job</button>` : ''}</div>
+    </div>
+    <section class="panel"><div class="tbl-wrap"><table>
+      <thead><tr><th>Job</th><th>Campaign</th><th>Client</th><th>Site</th><th>Dates</th><th>Supervisor</th><th>Load-outs</th><th>Status</th></tr></thead>
+      <tbody>${js.map(j => { const c = j.campaign && camp(j.campaign); const seqN = c ? jobsOf(c.id).findIndex(x => x.id === j.id) + 1 : 0; return `<tr>
+        <td><button class="linkbtn mono" data-act="openJob" data-id="${esc(j.id)}">${esc(j.id)}</button></td>
+        <td>${c ? `<span class="row c${c.color}"><i class="sw"></i>${esc(c.name)} <span class="muted">· ${seqN} of ${jobsOf(c.id).length}</span></span>` : '<span class="muted">Standalone</span>'}</td>
+        <td>${esc(j.client)}</td><td>${esc(j.site)}</td>
+        <td class="num">${fmt(j.start)} – ${fmt(j.end)}</td><td>${esc(j.supervisor)}</td>
+        <td class="num">${loadoutsOf(j.id).length}</td><td>${pill(isOverdue(j) ? 'Overdue' : j.status)}</td></tr>`; }).join('')}</tbody>
+    </table></div>${js.length ? '' : '<div class="empty">No jobs match these filters.</div>'}</section>`;
+}
+
+function viewLoadouts() {
+  const los = S.loadouts.filter(l => jobVisible(job(l.job))).sort((a, b) => a.date.localeCompare(b.date));
+  return `<div class="page-head">
+      <div><h1>Load-outs</h1><p>Every load-out belongs to a job. Assets are booked from the load date to the job end date.</p></div>
+      <div class="row">${filterControls()}${can.plan() ? `<button class="btn pri" data-act="newLo">+ New load-out</button>` : ''}</div>
+    </div>
+    <section class="panel">${loadoutTable(los)}</section>`;
+}
+
+function viewAssets() {
+  const nextBooking = a => {
+    const l = S.loadouts.filter(l => l.status !== 'Returned' && l.assets.includes(a.id) && !closed(job(l.job))).sort((x, y) => x.date.localeCompare(y.date))[0];
+    return l ? `<button class="linkbtn mono" data-act="openJob" data-id="${esc(l.job)}">${esc(l.job)}</button> <span class="muted">from ${fmt(l.date)}</span>` : '<span class="muted">—</span>';
+  };
+  const cert = a => {
+    if (!a.cert) return '<span class="muted">—</span>';
+    const d = diff(TODAY, a.cert);
+    if (d < 0) return `<span class="t-bad">${fmtY(a.cert)} · expired</span>`;
+    if (d <= 30) return `<span class="t-warn">${fmtY(a.cert)} · ${d} days</span>`;
+    return `<span class="num">${fmtY(a.cert)}</span>`;
+  };
+  return `<div class="page-head"><div><h1>Assets</h1><p>${S.assets.length} assets. Status changes automatically as load-outs move through loaded, delivered and returned.</p></div></div>
+    <section class="panel"><div class="tbl-wrap"><table>
+      <thead><tr><th>Tag</th><th>Name</th><th>Category</th><th>Status</th><th>Cert due</th><th>Next / current booking</th>${can.yard() ? '<th>Inspection</th>' : ''}</tr></thead>
+      <tbody>${S.assets.map(a => `<tr>
+        <td class="mono" style="font-weight:600">${esc(a.id)}</td><td>${esc(a.name)}</td><td class="muted">${esc(a.cat)}</td>
+        <td>${pill(a.status)}</td><td>${cert(a)}</td><td>${nextBooking(a)}</td>
+        ${can.yard() ? `<td>${a.status === 'Returned – Awaiting Inspection' ? `<div class="row"><button class="btn sm" data-act="inspect" data-id="${esc(a.id)}" data-v="pass">Pass</button><button class="btn sm danger" data-act="inspect" data-id="${esc(a.id)}" data-v="fail">Fail</button></div>` : ''}</td>` : ''}
+      </tr>`).join('')}</tbody></table></div></section>`;
+}
+
+const VIEWS = { calendar: viewCalendar, campaigns: viewCampaigns, jobs: viewJobs, loadouts: viewLoadouts, assets: viewAssets };
+
+// =====================================================================
+// JOB DRAWER
+// =====================================================================
+const NEXT_STEP = { Planned: 'Confirm loaded', Loaded: 'Mark delivered to site', Delivered: 'Check in return' };
+function renderDrawer() {
+  const root = $('#drawer-root');
+  const j = ui.openJob && job(ui.openJob);
+  if (!j) { root.innerHTML = ''; return; }
+  const c = j.campaign && camp(j.campaign);
+  let campBox = '';
+  if (c) {
+    const js = jobsOf(c.id), i = js.findIndex(x => x.id === j.id);
+    campBox = `<div class="camp-box c${c.color}">
+      <div class="row spread"><strong>${esc(c.name)}</strong><span>Job ${i + 1} of ${js.length}</span></div>
+      <div class="row">
+        <button class="btn sm" data-act="openJob" data-id="${esc(js[i - 1] ? js[i - 1].id : '')}" ${i > 0 ? '' : 'disabled'}>← ${i > 0 ? esc(js[i - 1].id) : 'First job'}</button>
+        <button class="btn sm" data-act="openJob" data-id="${esc(js[i + 1] ? js[i + 1].id : '')}" ${i < js.length - 1 ? '' : 'disabled'}>${i < js.length - 1 ? esc(js[i + 1].id) : 'Last job'} →</button>
+      </div></div>`;
+  }
+  const los = loadoutsOf(j.id);
+  const loCards = los.map(l => `<div class="lo-card">
+      <div class="row spread"><span class="row"><span class="mono" style="font-weight:600">${esc(l.id)}</span>${pill(l.status)}</span><span class="muted num">${fmtDay(l.date)}</span></div>
+      <div class="muted"><span class="mono">${esc(l.truck)} · ${esc(l.trailer)}</span> · ${esc(l.driver)}</div>
+      <ul>${l.assets.map(id => { const a = asset(id); const chk = a ? checkAsset(a, l.date, j.end, l.id) : {}; return `<li><span class="mono" style="font-weight:600">${esc(id)}</span><span>${esc(a ? a.name : '')}</span>
+        ${l.overrides && l.overrides[id] ? `<span class="t-bad">Admin override: ${esc(l.overrides[id])}</span>` : ''}
+        ${l.status === 'Planned' && chk.warn ? `<span class="t-warn">${esc(chk.warn)}</span>` : ''}</li>`; }).join('')}</ul>
+      <div class="row">
+        ${NEXT_STEP[l.status] && can.yard() && !closed(j) ? `<button class="btn sm pri" data-act="advance" data-id="${esc(l.id)}">${NEXT_STEP[l.status]}</button>` : ''}
+        ${l.status === 'Planned' && can.plan() ? `<button class="btn sm danger" data-act="removeLo" data-id="${esc(l.id)}">Remove</button>` : ''}
+      </div>
+    </div>`).join('');
+  const allReturned = los.length > 0 && los.every(l => l.status === 'Returned');
+  root.innerHTML = `<div class="overlay" data-act="closeDrawer"></div>
+    <aside class="drawer ${colorOf(j)}" role="dialog" aria-modal="true" aria-labelledby="dr-title">
+      <div class="drawer-head">
+        <h2 id="dr-title" class="mono" style="font-size:18px">${esc(j.id)}</h2>${pill(isOverdue(j) ? 'Overdue' : j.status)}
+        <span style="flex:1"></span><button class="btn sm ghost" data-act="closeDrawer" aria-label="Close">✕</button>
+      </div>
+      <div class="drawer-body">
+        ${campBox}
+        <dl class="kv">
+          <dt>Client</dt><dd>${esc(j.client)}</dd>
+          <dt>Well site</dt><dd>${esc(j.site)}</dd>
+          <dt>Dates</dt><dd class="num">${fmtDay(j.start)} – ${fmtDay(j.end)} · ${diff(j.start, j.end) + 1} days</dd>
+          <dt>Supervisor</dt><dd>${esc(j.supervisor)}</dd>
+          <dt>Job status</dt><dd>${esc(j.status)}${isOverdue(j) ? ' · <span class="t-bad">return overdue</span>' : ''}</dd>
+        </dl>
+        <div class="row spread"><h3 style="font-size:16px">Load-outs (${los.length})</h3>${can.plan() && !closed(j) ? `<button class="btn sm pri" data-act="newLo" data-job="${esc(j.id)}">+ Load-out</button>` : ''}</div>
+        ${loCards || '<p class="muted" style="margin:0">No load-outs yet for this job.</p>'}
+        ${can.plan() && !closed(j) ? `<div class="row" style="border-top:1px solid var(--line);padding-top:14px">
+          <button class="btn sm" data-act="completeJob" data-id="${esc(j.id)}" ${allReturned ? '' : 'disabled'} title="${allReturned ? '' : 'All load-outs must be returned first'}">Mark job completed</button>
+          ${j.status === 'Planned' ? `<button class="btn sm danger" data-act="cancelJob" data-id="${esc(j.id)}">Cancel job</button>` : ''}
+        </div>` : ''}
+      </div>
+    </aside>`;
+  const close = root.querySelector('[aria-label="Close"]');
+  if (close && !root.contains(document.activeElement)) close.focus();
+}
+
+// =====================================================================
+// FORMS (modal)
+// =====================================================================
+function openModal(html, onReady) {
+  $('#modal-root').innerHTML = `<div class="sheet-wrap" data-act="closeModalBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-title">${html}</div></div>`;
+  onReady && onReady();
+  const f = $('#modal-root').querySelector('input, select, textarea');
+  f && f.focus();
+}
+function closeModal() { $('#modal-root').innerHTML = ''; }
+
+function formCampaign() {
+  openModal(`<h2 id="m-title">New campaign</h2>
+    <form id="f" class="grid2" novalidate>
+      <label class="fld">Campaign name<input type="text" id="c-name" placeholder="e.g. Pad 9 Completions" required></label>
+      <label class="fld">Client<select id="c-client">${S.clients.map(c => `<option>${esc(c)}</option>`).join('')}</select></label>
+      <label class="fld" style="grid-column:1/-1">Notes<textarea id="c-notes" placeholder="Scope, number of wells, anything the yard should know"></textarea></label>
+      <p class="err" id="c-err" style="grid-column:1/-1"></p>
+      <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn pri" type="submit">Create campaign</button></div>
+    </form>`, () => {
+    $('#f').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = $('#c-name').value.trim();
+      if (!name) { $('#c-err').textContent = 'Give the campaign a name.'; return; }
+      const n = S.campaigns.reduce((m, c) => Math.max(m, parseInt(c.id.slice(4), 10)), 0) + 1;
+      const id = 'CMP-' + String(n).padStart(2, '0');
+      S.campaigns.push({ id, name, client: $('#c-client').value, color: (S.campaigns.length % 4) + 1, notes: $('#c-notes').value.trim() });
+      commit(`Campaign ${name} created. Add its first job.`);
+      closeModal();
+      formJob(id);
+    });
+  });
+}
+
+function nextJobId() { const n = S.jobs.reduce((m, j) => Math.max(m, parseInt(j.id.slice(7), 10)), 0) + 1; return 'J-2026-' + String(n).padStart(3, '0'); }
+function formJob(campId) {
+  const c = campId && camp(campId);
+  let start = addDays(TODAY, 7);
+  if (c) { const js = jobsOf(c.id); if (js.length) start = addDays(js[js.length - 1].end, 2); }
+  const id = nextJobId();
+  openModal(`<h2 id="m-title">New job <span class="mono muted" style="font-size:15px">${id}</span></h2>
+    <form id="f" class="grid2" novalidate>
+      <label class="fld">Campaign<select id="j-camp"><option value="">None (standalone job)</option>${S.campaigns.map(x => `<option value="${esc(x.id)}" ${x.id === campId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+      <label class="fld">Client<select id="j-client">${S.clients.map(x => `<option ${c && c.client === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+      <label class="fld" style="grid-column:1/-1">Well site / location<input type="text" id="j-site" placeholder="e.g. Pad 7 – Well 17H"></label>
+      <label class="fld">Start date<input type="date" id="j-start" value="${start}"></label>
+      <label class="fld">End date<input type="date" id="j-end" value="${addDays(start, 10)}"></label>
+      <label class="fld" style="grid-column:1/-1">Job supervisor<input type="text" id="j-sup" placeholder="Name"></label>
+      <p class="err" id="j-err" style="grid-column:1/-1"></p>
+      <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn pri" type="submit">Create job</button></div>
+    </form>`, () => {
+    const syncClient = () => { const cc = camp($('#j-camp').value); $('#j-client').disabled = !!cc; if (cc) $('#j-client').value = cc.client; };
+    $('#j-camp').addEventListener('change', () => {
+      syncClient();
+      const cc = camp($('#j-camp').value);
+      if (cc) { const js = jobsOf(cc.id); if (js.length) { const s = addDays(js[js.length - 1].end, 2); $('#j-start').value = s; $('#j-end').value = addDays(s, 10); } }
+    });
+    syncClient();
+    $('#f').addEventListener('submit', e => {
+      e.preventDefault();
+      const site = $('#j-site').value.trim(), s = $('#j-start').value, en = $('#j-end').value;
+      if (!site) { $('#j-err').textContent = 'Enter the well site or location.'; return; }
+      if (!s || !en || en < s) { $('#j-err').textContent = 'The end date must be on or after the start date.'; return; }
+      S.jobs.push({ id, campaign: $('#j-camp').value || null, client: $('#j-client').value, site, start: s, end: en, supervisor: $('#j-sup').value.trim() || '—', status: 'Planned' });
+      ui.month = monthStart(s);
+      commit(`Job ${id} created.`);
+      closeModal();
+      ui.openJob = id; renderDrawer();
+    });
+  });
+}
+
+function formLoadout(jobId) {
+  const jobs = S.jobs.filter(j => !closed(j)).sort((a, b) => a.start.localeCompare(b.start));
+  if (!jobs.length) { toast('Create a job first.'); return; }
+  const first = job(jobId) || jobs.find(j => j.start >= TODAY) || jobs[0];
+  const picked = new Set();
+  openModal(`<h2 id="m-title">New load-out</h2>
+    <form id="f" class="grid2" novalidate>
+      <label class="fld" style="grid-column:1/-1">Job<select id="l-job">${jobs.map(j => { const c = j.campaign && camp(j.campaign); return `<option value="${esc(j.id)}" ${j.id === first.id ? 'selected' : ''}>${esc(j.id)} · ${esc(j.site)}${c ? ' · ' + esc(c.name) : ''} (${fmt(j.start)} – ${fmt(j.end)})</option>`; }).join('')}</select></label>
+      <label class="fld">Load date<input type="date" id="l-date"></label>
+      <label class="fld">Driver<input type="text" id="l-driver" placeholder="Name"></label>
+      <label class="fld">Truck<input type="text" id="l-truck" placeholder="e.g. T-14"></label>
+      <label class="fld">Trailer<input type="text" id="l-trailer" placeholder="e.g. FB-22 Flatbed"></label>
+      <div id="l-carry" style="grid-column:1/-1"></div>
+      <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:6px">
+        <div class="row spread"><span class="fld" style="margin:0">Assets <span id="l-window" class="muted" style="font-weight:400"></span></span><span id="l-count" class="muted"></span></div>
+        <div class="pick" id="l-assets"></div>
+      </div>
+      <label class="fld" id="l-ovr" style="grid-column:1/-1" hidden>Admin override reason (required for blocked assets)<textarea id="l-reason" placeholder="e.g. Re-cert booked for 18 Nov, certificate attached before load-out"></textarea></label>
+      <p class="err" id="l-err" style="grid-column:1/-1"></p>
+      <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn pri" type="submit">Create load-out</button></div>
+    </form>`, () => {
+    const jobSel = $('#l-job'), dateIn = $('#l-date');
+    const cur = () => job(jobSel.value);
+    const setDefaults = () => { dateIn.value = maxD(addDays(cur().start, -1), TODAY); };
+    let checks = {};
+    function refresh() {
+      const j = cur(), from = dateIn.value || j.start;
+      $('#l-window').textContent = `· booked ${fmt(from)} – ${fmt(j.end)}`;
+      checks = {};
+      const rows = S.assets.map(a => {
+        const r = checkAsset(a, from, j.end, null);
+        let state = 'ok', note = 'Available';
+        if (r.conflict) { state = 'conflict'; note = r.conflict; }
+        else if (r.block) { state = 'blocked'; note = 'Blocked: ' + r.block + (can.override() ? ' · Admin can override' : ''); }
+        else if (r.warn) { state = 'warn'; note = r.warn; }
+        checks[a.id] = state;
+        if (state === 'conflict' || (state === 'blocked' && !can.override())) picked.delete(a.id);
+        return { a, state, note };
+      }).sort((x, y) => ['ok', 'warn', 'blocked', 'conflict'].indexOf(x.state) - ['ok', 'warn', 'blocked', 'conflict'].indexOf(y.state));
+      $('#l-assets').innerHTML = rows.map(({ a, state, note }) => {
+        const dis = state === 'conflict' || (state === 'blocked' && !can.override());
+        const cls = state === 'conflict' || state === 'blocked' ? 't-bad' : state === 'warn' ? 't-warn' : 'muted';
+        return `<label class="pick-row ${dis ? 'dis' : ''}"><input type="checkbox" data-asset="${esc(a.id)}" ${picked.has(a.id) ? 'checked' : ''} ${dis ? 'disabled' : ''}>
+          <span class="nm"><span><span class="mono" style="font-weight:600">${esc(a.id)}</span> ${esc(a.name)}</span><span class="note ${cls}">${esc(note)}</span></span></label>`;
+      }).join('');
+      // carry-over: previous job in the same campaign
+      const c = j.campaign && camp(j.campaign);
+      let carry = '';
+      if (c) {
+        const js = jobsOf(c.id), i = js.findIndex(x => x.id === j.id), prev = js[i - 1];
+        if (prev) {
+          const ids = [...new Set(loadoutsOf(prev.id).flatMap(l => l.assets))];
+          if (ids.length) carry = `<div class="callout"><span>Previous job in <strong>${esc(c.name)}</strong> is ${esc(prev.id)} (ends ${fmt(prev.end)}) with ${ids.length} assets.</span><button type="button" class="btn sm" id="l-carry-btn">Carry over its assets</button></div>`;
+          setTimeout(() => { const b = $('#l-carry-btn'); b && b.addEventListener('click', () => { let n = 0; ids.forEach(id => { if (checks[id] === 'ok' || checks[id] === 'warn') { picked.add(id); n++; } }); refresh(); toast(`${n} of ${ids.length} assets carried over${n < ids.length ? '; the rest are blocked or booked' : ''}.`); }); });
+        }
+      }
+      $('#l-carry').innerHTML = carry;
+      updateCount();
+    }
+    function updateCount() {
+      $('#l-count').textContent = `${picked.size} selected`;
+      $('#l-ovr').hidden = ![...picked].some(id => checks[id] === 'blocked');
+    }
+    $('#l-assets').addEventListener('change', e => { const id = e.target.dataset.asset; if (!id) return; e.target.checked ? picked.add(id) : picked.delete(id); updateCount(); });
+    jobSel.addEventListener('change', () => { setDefaults(); refresh(); });
+    dateIn.addEventListener('change', refresh);
+    setDefaults(); refresh();
+    $('#f').addEventListener('submit', e => {
+      e.preventDefault();
+      const j = cur(), date = dateIn.value, err = $('#l-err');
+      if (!date) { err.textContent = 'Pick a load date.'; return; }
+      if (date > j.end) { err.textContent = `The load date must be on or before the job end (${fmt(j.end)}).`; return; }
+      if (!picked.size) { err.textContent = 'Select at least one asset.'; return; }
+      const blocked = [...picked].filter(id => checks[id] === 'blocked');
+      const reason = $('#l-reason').value.trim();
+      if (blocked.length && !can.override()) { err.textContent = 'Only an Admin can add blocked assets.'; return; }
+      if (blocked.length && reason.length < 5) { err.textContent = 'Enter an override reason for the blocked assets.'; return; }
+      if ([...picked].some(id => checks[id] === 'conflict')) { err.textContent = 'One of the assets is already booked on an overlapping job.'; return; }
+      const num = j.id.slice(7);
+      let k = 1; while (S.loadouts.some(l => l.id === `LO-${num}-${k}`)) k++;
+      const lo = { id: `LO-${num}-${k}`, job: j.id, date, truck: $('#l-truck').value.trim() || 'TBC', trailer: $('#l-trailer').value.trim() || 'TBC', driver: $('#l-driver').value.trim() || 'TBC', status: 'Planned', assets: [...picked], overrides: {} };
+      blocked.forEach(id => lo.overrides[id] = reason);
+      S.loadouts.push(lo);
+      lo.assets.forEach(id => { const a = asset(id); if (a && a.status === 'Available') a.status = 'Reserved'; });
+      commit(`${lo.id} created with ${lo.assets.length} assets. Assets are now reserved.`);
+      closeModal();
+      ui.openJob = j.id; renderDrawer();
+    });
+  });
+}
+
+// =====================================================================
+// ACTIONS
+// =====================================================================
+function advance(loId) {
+  const lo = S.loadouts.find(l => l.id === loId), j = job(lo.job);
+  if (lo.status === 'Planned') {
+    lo.status = 'Loaded'; setAssetStatus(lo.assets, 'Loaded Out');
+    if (j.status === 'Planned') j.status = 'Loading';
+    commit(`${lo.id} signed off as loaded. Planner notified by email.`);
+  } else if (lo.status === 'Loaded') {
+    lo.status = 'Delivered'; setAssetStatus(lo.assets, 'On Job'); j.status = 'Mobilized';
+    commit(`${lo.id} delivered. ${j.id} is now Mobilized.`);
+  } else if (lo.status === 'Delivered') {
+    lo.status = 'Returned'; setAssetStatus(lo.assets, 'Returned – Awaiting Inspection');
+    commit(`${lo.id} checked in. ${lo.assets.length} assets await inspection.`);
+  }
+}
+function commit(msg) { saveStore(); render(); if (msg) toast(msg); }
+let toastTimer;
+function toast(msg) {
+  $('#toast-root').innerHTML = `<div class="toast">${esc(msg)}</div>`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast-root').innerHTML = ''; }, 3200);
+}
+function render() {
+  document.querySelectorAll('.nav a').forEach(a => a.setAttribute('aria-current', a.dataset.view === ui.view ? 'page' : 'false'));
+  $('#view').innerHTML = VIEWS[ui.view]();
+  renderDrawer();
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act, id = el.dataset.id;
+  if (act === 'closeModalBg' && e.target !== el) return;   // only close when the backdrop itself is clicked
+  switch (act) {
+    case 'prev': ui.month = monthStart(addDays(ui.month, -1)); render(); break;
+    case 'next': ui.month = monthStart(addDays(monthEnd(ui.month), 1)); render(); break;
+    case 'today': ui.month = monthStart(TODAY); render(); break;
+    case 'mode': ui.mode = el.dataset.v; render(); break;
+    case 'group': ui.group = el.dataset.v; render(); break;
+    case 'openJob': if (id) { ui.openJob = id; renderDrawer(); } break;
+    case 'closeDrawer': ui.openJob = null; renderDrawer(); break;
+    case 'newCamp': formCampaign(); break;
+    case 'newJob': formJob(el.dataset.camp); break;
+    case 'newLo': formLoadout(el.dataset.job); break;
+    case 'closeModal': case 'closeModalBg': closeModal(); break;
+    case 'advance': advance(id); break;
+    case 'removeLo': {
+      const lo = S.loadouts.find(l => l.id === id);
+      S.loadouts = S.loadouts.filter(l => l.id !== id); releaseAssets(lo.assets);
+      commit(`${id} removed. Its assets are free again.`); break;
+    }
+    case 'completeJob': job(id).status = 'Completed'; commit(`${id} marked completed.`); break;
+    case 'cancelJob': {
+      const ids = loadoutsOf(id).flatMap(l => l.assets);
+      job(id).status = 'Cancelled'; S.loadouts = S.loadouts.filter(l => !(l.job === id && l.status === 'Planned')); releaseAssets(ids);
+      commit(`${id} cancelled. Reserved assets released.`); break;
+    }
+    case 'inspect': {
+      const a = asset(id), pass = el.dataset.v === 'pass';
+      a.status = pass ? 'Available' : 'In Maintenance';
+      if (pass && (!a.cert || a.cert < addDays(TODAY, 30))) a.cert = addDays(TODAY, 180);
+      commit(`${id} ${pass ? 'passed inspection and is Available' : 'failed inspection and moved to In Maintenance'}.`); break;
+    }
+    case 'reset': S = seed(); ui.openJob = null; ui.fCampaign = 'all'; ui.fClient = 'all'; ui.month = monthStart(TODAY); commit('Demo data reset.'); break;
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'f-campaign') { ui.fCampaign = e.target.value; render(); }
+  if (e.target.id === 'f-client') { ui.fClient = e.target.value; render(); }
+  if (e.target.id === 'role') { ui.role = e.target.value; saveStore(); render(); toast(`Now viewing as ${e.target.options[e.target.selectedIndex].text}.`); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('#modal-root').innerHTML) closeModal();
+  else if (ui.openJob) { ui.openJob = null; renderDrawer(); }
+});
+function route() { const v = location.hash.slice(1); ui.view = VIEWS[v] ? v : 'calendar'; render(); }
+window.addEventListener('hashchange', route);
+$('#role').value = ui.role;
+route();
+</script>
